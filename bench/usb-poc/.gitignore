@@ -1,0 +1,9 @@
+.venv/
+.tools/
+__pycache__/
+.pytest_cache/
+data/
+*.log
+config/calibration.json
+firmware/skycam/build/
+config/live.json
