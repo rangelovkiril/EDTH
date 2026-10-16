@@ -1,0 +1,43 @@
+# Copy to site.yaml and edit for the real deployment.
+site: edth-demo
+
+origin:
+  # Geodetic origin of the local ENU frame (used only for CoT output).
+  lat: 42.6977
+  lon: 23.3219
+  hae_m: 550.0
+
+fusion:
+  drop_unsynced: true
+  assoc_window_ms: 25        # max |t| difference between detections in one fix
+  gate_m: 0.5                # max ray-to-point residual to accept a fix
+  track_timeout_ms: 1000
+  publish_hz: 10
+  friendly_gate_m: 3.0
+  friendly_gate_ms: 1000
+
+nodes:
+  - id: 1
+    kind: esp32s3            # esp32s3 | pi-csi | pi-usb
+    calib: calib/node-01.yaml
+    latency_us: 0            # filled from the LED test (docs/time-sync.md)
+    position: [0.0, 0.0, 1.2]   # ENU metres
+    yaw: 45.0                   # deg, clockwise from north
+    pitch: 15.0                 # deg, up positive
+    roll: 0.0
+  - id: 2
+    kind: esp32s3
+    calib: calib/node-02.yaml
+    latency_us: 0
+    position: [6.0, 0.0, 1.2]
+    yaw: 315.0
+    pitch: 15.0
+    roll: 0.0
+  - id: 21
+    kind: pi-csi
+    calib: calib/node-21.yaml
+    latency_us: 0
+    position: [3.0, -1.0, 1.0]
+    yaw: 0.0
+    pitch: 20.0
+    roll: 0.0

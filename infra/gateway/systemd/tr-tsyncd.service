@@ -1,0 +1,14 @@
+[Unit]
+Description=Triangulum TSYNC responder
+After=network-online.target chrony.service
+Wants=network-online.target
+
+[Service]
+User=triangulum
+ExecStart=/opt/triangulum/.venv/bin/tr-tsyncd
+Nice=-10
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
