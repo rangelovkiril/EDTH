@@ -33,6 +33,8 @@ publish `tr/v1/tracks` at `fusion.publish_hz`. Runs on the laptop.
 - Must run identically on replayed data (`tools/replay`) — no wall-clock logic;
   drive time from message timestamps.
 - SIGHUP reloads `site.yaml`.
+- Reset all tracks when network time goes backwards (collector reboot,
+  `docs/time-sync.md`).
 - Log per fix: nodes used, residual, track id. This is the main debug signal.
 
 ## Done criteria

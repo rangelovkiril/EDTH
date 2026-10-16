@@ -1,12 +1,12 @@
-# protocol/ — wire protocol codecs
+# protocol/ — message codecs
 
 ## Purpose
 Single implementation of `docs/protocol.md` §2 for every language in the repo.
 Nothing else in the repo may hand-parse or hand-build packets.
 
 ```
-c/trwire.h                 header-only C (ESP-IDF firmware includes it directly)
-python/src/trwire/         Python codec, used by ingest, pi-node, tools
+c/trwire.h                 header-only C (firmware, via the tr_link component)
+python/src/trwire/         Python codec, used by bridge and tools
 test-vectors/vectors.json  canonical encoded messages + decoded fields
 tools/gen_vectors.py       regenerates vectors from the Python codec
 ```

@@ -1,4 +1,4 @@
-/* trwire.h — Triangulum wire protocol v1. Normative spec: docs/protocol.md */
+/* trwire.h — Triangulum message protocol v1. Normative spec: docs/protocol.md */
 #ifndef TRWIRE_H
 #define TRWIRE_H
 
@@ -13,8 +13,8 @@
 #define TR_MAGIC1 'R'
 #define TR_VERSION 1
 
-#define TR_PORT_INGEST 5600
-#define TR_PORT_TSYNC 5601
+#define TR_NODE_COLLECTOR 100
+#define TR_NODE_GROUND 110
 
 enum tr_msg_type {
     TR_MSG_DETECTION_BATCH = 0x01,

@@ -1,4 +1,4 @@
-"""Triangulum wire protocol v1 codec. Normative spec: docs/protocol.md."""
+"""Triangulum message protocol v1 codec. Normative spec: docs/protocol.md."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 MAGIC = b"TR"
 VERSION = 1
 
-PORT_INGEST = 5600
-PORT_TSYNC = 5601
+NODE_COLLECTOR = 100
+NODE_GROUND = 110
 
 TYPE_DETECTION_BATCH = 0x01
 TYPE_STATUS = 0x02
@@ -249,8 +249,8 @@ __all__ = [
     "decode",
     "MAGIC",
     "VERSION",
-    "PORT_INGEST",
-    "PORT_TSYNC",
+    "NODE_COLLECTOR",
+    "NODE_GROUND",
     "TYPE_DETECTION_BATCH",
     "TYPE_STATUS",
     "TYPE_TSYNC_REQ",

@@ -1,8 +1,7 @@
 [tool.uv.workspace]
 members = [
   "protocol/python",
-  "gateway/ingest",
-  "sensors/pi-node",
+  "ground/bridge",
   "ground/fusion",
   "ground/cot",
   "tools",

@@ -18,9 +18,9 @@ fusion:
 
 nodes:
   - id: 1
-    kind: esp32s3            # esp32s3 | pi-csi | pi-usb
+    kind: esp32s3
     calib: calib/node-01.yaml
-    latency_us: 0            # filled from the LED test (docs/time-sync.md)
+    latency_us: 0            # constant capture latency, if measured
     position: [0.0, 0.0, 1.2]   # ENU metres
     yaw: 45.0                   # deg, clockwise from north
     pitch: 15.0                 # deg, up positive
@@ -32,12 +32,4 @@ nodes:
     position: [6.0, 0.0, 1.2]
     yaw: 315.0
     pitch: 15.0
-    roll: 0.0
-  - id: 21
-    kind: pi-csi
-    calib: calib/node-21.yaml
-    latency_us: 0
-    position: [3.0, -1.0, 1.0]
-    yaw: 0.0
-    pitch: 20.0
     roll: 0.0

@@ -3,7 +3,7 @@
 ## Purpose
 Everything geometric about a deployment: origin, node poses, camera
 intrinsics, per-node latency. Read by `ground/fusion`, `ground/cot`, `tools/sim`.
-Nodes never read this — they send raw pixels.
+Observers never read this — they send raw pixels.
 
 ```
 site.example.yaml     committed template, documents the schema

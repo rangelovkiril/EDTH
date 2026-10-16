@@ -6,13 +6,14 @@ Each tool is a module in `src/tr_tools/` with its own entry point.
 
 | Command | Module | Does |
 |---------|--------|------|
-| `tr-replay` | `replay.py` | Sends a raw recording (`protocol.md` §4) to an ingest port with original timing; `--speed`, `--loop`, `--from/--to` |
-| `tr-sim` | `sim.py` | Synthetic targets → projected through `config/site.sim.yaml` cameras → `DETECTION_BATCH` with `FLAG_TEST`, sent to ingest |
+| `tr-replay` | `replay.py` | Feeds a raw recording (`protocol.md` §4) through the bridge's decode path into MQTT with original timing; `--speed`, `--loop`, `--from/--to` |
+| `tr-sim` | `sim.py` | Synthetic targets → projected through `config/site.sim.yaml` cameras → `DETECTION_BATCH` with `FLAG_TEST` → bridge decode path → MQTT |
 | `tr-calib` | `calib.py` | Checkerboard intrinsics from captured images → `config/calib/node-XX.yaml` |
 | `trctl` | `trctl.py` | Live terminal view: nodes (age, fps, sync, rssi, temp, gaps), tracks, latency |
 
 ## Rules
-- Build packets only with `trwire`. Project points only with
+- Build messages only with `trwire`. Reuse the bridge's decode/publish code
+  (`tr_bridge`), don't duplicate it. Project points only with
   `tr_fusion.geometry` — the simulator must use the same math as fusion, or a
   sim test proves nothing.
 - Simulator noise model is explicit and configurable: pixel noise, time

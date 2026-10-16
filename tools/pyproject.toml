@@ -3,7 +3,7 @@ name = "tr-tools"
 version = "0.1.0"
 description = "Replay, simulator, calibration, status CLI"
 requires-python = ">=3.11"
-dependencies = ["trwire", "tr-fusion", "numpy", "opencv-python-headless", "paho-mqtt>=2.1", "pyyaml"]
+dependencies = ["trwire", "tr-bridge", "tr-fusion", "numpy", "opencv-python-headless", "paho-mqtt>=2.1", "pyyaml"]
 
 [project.scripts]
 tr-replay = "tr_tools.replay:main"
@@ -20,4 +20,5 @@ packages = ["src/tr_tools"]
 
 [tool.uv.sources]
 trwire = { workspace = true }
+tr-bridge = { workspace = true }
 tr-fusion = { workspace = true }
