@@ -1,0 +1,35 @@
+{
+  "mode": "live",
+  "calibration": null,
+  "cameras": [
+    {
+      "name": "XIAO \u00b7 West",
+      "type": "serial",
+      "source": "/dev/ttyACM0",
+      "fps": 8
+    },
+    {
+      "name": "XIAO \u00b7 East",
+      "type": "serial",
+      "source": "/dev/ttyACM1",
+      "fps": 8
+    }
+  ],
+  "voxel_bounds": [
+    [
+      -5,
+      5
+    ],
+    [
+      -4,
+      4
+    ],
+    [
+      0.5,
+      15
+    ]
+  ],
+  "voxel_resolution": 40,
+  "max_pair_skew_s": 0.2,
+  "max_range_m": 100
+}

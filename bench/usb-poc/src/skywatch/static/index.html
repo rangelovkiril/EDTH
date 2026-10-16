@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Triangulum — USB camera bench</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<aside class="rail"><a class="logo" href="/" aria-label="Triangulum home">T<span>↗</span></a><a class="nav active" href="#overview" title="Overview">▦</a><a class="nav" href="#feeds" title="Camera feeds">◉</a><a class="nav" href="#volume" title="Spatial view">◇</a><a class="nav" href="#events" title="Event log">≡</a><div class="rail-bottom">V.01</div></aside>
+<main id="overview">
+<header><div class="breadcrumb">TRIANGULUM <span>/</span> USB BENCH</div><div class="header-right"><span id="connection" class="connection">● CONNECTING</span><time id="clock"></time></div></header>
+<div class="title-row"><div><div class="eyebrow">MULTI-CAMERA OPTICAL SENSING</div><h1>Airspace overview<span>.</span></h1><p class="subtitle">From moving pixels to spatial evidence.</p></div><div class="title-actions"><span id="mode" class="badge amber">STARTING</span><a class="button" href="/api/events.csv">↓ Export events</a></div></div>
+<div id="notice" class="notice">Connecting to the local observation engine…</div>
+<section class="metrics" aria-label="System metrics">
+<article class="metric"><div>CAMERAS ONLINE <span>01</span></div><strong id="camera-count">—</strong><small id="camera-caption">Waiting for sources</small></article>
+<article class="metric"><div>MOTION TRACKS <span>02</span></div><strong id="track-count">—</strong><small>Persistent candidates · unclassified</small></article>
+<article class="metric"><div>ESTIMATED RANGE <span>03</span></div><strong id="range">—</strong><small id="range-caption">Two calibrated views required</small></article>
+<article class="metric"><div>PROCESSING TIME <span>04</span></div><strong id="latency">—</strong><small id="timing">Pair timing unavailable</small></article>
+</section>
+<div class="workspace">
+<section id="feeds" class="panel feed-panel"><div class="panel-title"><h2><span class="dot"></span> Optical feeds</h2><label class="switch"><input type="checkbox" id="mask-toggle"> Motion mask</label></div><div id="cameras" class="camera-grid"></div><div class="panel-footer"><span>3-frame persistence filter</span><span id="frames">0 frames processed</span></div></section>
+<section id="volume" class="panel volume-panel"><div class="panel-title"><h2>Spatial reconstruction</h2><span class="tag">VOXEL VIEW</span></div><div class="volume-stage"><canvas id="space" aria-label="Interactive 3D view of calibrated cameras and shared motion voxel evidence"></canvas><div class="volume-overlay"><span class="key green"></span> Shared motion evidence<br><span class="key orange"></span> Camera origin</div><div class="volume-hint">DRAG TO ORBIT · SCROLL TO ZOOM</div></div><div class="panel-footer"><span id="voxel-count">0 supported cells</span><span id="volume-mode">Awaiting calibration</span></div></section>
+</div>
+<div class="lower-grid">
+<section class="panel activity-panel"><div class="panel-title"><h2>Detection activity</h2><span class="tag">LAST 120 S</span></div><canvas id="activity" aria-label="Motion track count over time"></canvas><div class="panel-footer"><span><span class="key green"></span> Motion tracks across cameras</span><span id="uptime">00:00 uptime</span></div></section>
+<section class="panel controls"><div class="panel-title"><h2>Detection tuning</h2><span class="tag">LIVE</span></div><form id="settings"><label for="threshold">Background threshold <output id="threshold-value">20</output></label><input id="threshold" type="range" min="5" max="100" value="20"><label for="min-area">Minimum blob area <output id="area-value">5 px</output></label><input id="min-area" type="range" min="2" max="100" value="5"><div class="control-buttons"><button class="button primary" type="submit">Apply settings</button><button class="button" id="reset" type="button">Reset background</button></div></form></section>
+</div>
+<section id="events" class="panel events-panel"><div class="panel-title"><h2>Observation log <span id="event-count" class="count">0</span></h2><button class="button compact" id="capture">◎ Capture calibration pair</button></div><div class="table-wrap"><table><thead><tr><th>TIME</th><th>EVENT</th><th>SOURCE</th><th>TRACK</th><th>DATA ORIGIN</th></tr></thead><tbody id="event-body"><tr><td colspan="5" class="empty">Waiting for persistent motion.</td></tr></tbody></table></div></section>
+<footer><span><b>TRIANGULUM</b> / USB BENCH</span><span>Motion evidence only. Aircraft / drone identity is not verified.</span><a href="/docs">API reference ↗</a></footer>
+</main><div id="toast" role="status" aria-live="polite"></div><script src="/static/app.js"></script>
+</body></html>
