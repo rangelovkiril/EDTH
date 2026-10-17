@@ -1,0 +1,17 @@
+# Mounted at /etc/grafana/provisioning/datasources/. Values come from the Grafana container's
+# environment; use a read-only Postgres role (see ../sql/001_init.sql).
+apiVersion: 1
+datasources:
+  - name: EDTH Postgres
+    uid: edth-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: $PG_HOST:$PG_PORT
+    user: $PG_USER
+    isDefault: true
+    jsonData:
+      database: $PG_DATABASE
+      sslmode: require
+      postgresVersion: 1600
+    secureJsonData:
+      password: $PG_PASSWORD

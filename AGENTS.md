@@ -71,16 +71,20 @@ Each zone has its own `AGENTS.md`; work inside one zone per task.
 
 Written down, not decided. Confirm before building on them.
 
-1. **Load balancer:** TLS passthrough (L4) or termination? Decides whether mTLS is
-   possible. Default: username/password per node over TLS 8883.
-2. **`az`/`el` frame and node pose.** Assumed: computed on the node from pixel,
-   intrinsics and the configured mount heading/pitch/roll.
-3. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`).
-4. **Tailscale** on the Pis (CI reaches them through it).
-5. ~~Repo visibility~~ — the repo is public, so the native arm64 runner is free.
-6. **Camera:** USB (V4L2, default) or CSI (needs more device passthrough).
-7. **EMQX version and licence** (multi-node clusters need a key since 5.9); whether
-   Exoscale DBaaS Postgres is available in `bg-sof-1`.
+1. **Load balancer:** assumed L4 (TLS passthrough, certificate on EMQX). If it terminates TLS
+   instead, mTLS is impossible and nothing else changes. Default: username/password per node.
+2. **`az`/`el` frame and node pose.** Assumed: computed on the node from pixel, intrinsics and
+   the configured mount heading/pitch/roll.
+3. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`); the last two
+   are omitted when unavailable.
+4. **Tailscale** on the Pis (CI reaches them through it); needs a Tailscale account.
+5. **Camera:** USB (V4L2, default) or CSI (needs more device passthrough in the quadlet).
+6. **EMQX version and licence.** Config is written for Operator 3.x / EMQX 6.x (tested on 6.3.2).
+   6.x is free for **one node**; a multi-node cluster needs a licence key.
+7. **Exoscale:** is DBaaS Postgres available in `bg-sof-1`? Real hostnames and the DNS name for the
+   TLS certificate are placeholders in `infra/emqx/`.
 8. **Project name:** repo history says "Triangulum", the brief says "M.I.G.E.T.".
-9. **NTP egress** (UDP 123) from the Pis.
+9. **NTP egress** (UDP 123) from the Pis; without it `clock_offset_ms` is omitted.
 10. **Online/offline signal:** retained LWT on `status`, and a schema `version` field.
+11. **Untested on real hardware:** the Pi camera path, the Tailscale/SSH deploy and the Exoscale
+    NLB. Everything else is covered by `node/tests` and `infra/emqx/test/run.sh`.
