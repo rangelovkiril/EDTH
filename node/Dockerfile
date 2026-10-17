@@ -1,30 +1,52 @@
 # syntax=docker/dockerfile:1.7
+# Runtime for the Raspberry Pi node (arm64). libcamera and picamera2 come from Raspberry Pi's apt
+# repo, the same one the host OS uses, so the userspace matches the kernel's camera drivers.
 
-# Pinned uv, copied in as a single static binary.
 FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
 
-# Build stage: resolve exactly what uv.lock says into a venv, minus bundled tests and type stubs. Only pyproject.toml and uv.lock
-# are bind-mounted, so this layer is rebuilt only when dependencies change, not on code edits.
-FROM python:3.12-slim-bookworm AS build
+FROM debian:trixie-slim AS base
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+ && curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key -o /tmp/rpi.key \
+ && gpg --show-keys --with-colons /tmp/rpi.key | grep -q '^fpr:::::::::CF8A1AF502A2AA2D763BAE7E82B129927FA3303E:' \
+ && gpg --dearmor < /tmp/rpi.key > /usr/share/keyrings/raspberrypi-archive-keyring.gpg \
+ && printf 'Types: deb\nURIs: http://archive.raspberrypi.com/debian/\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/raspberrypi-archive-keyring.gpg\n' \
+      > /etc/apt/sources.list.d/raspi.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-numpy python3-picamera2 libcamera-ipa \
+ && apt-get purge -y --auto-remove curl gnupg \
+ && rm -f /tmp/rpi.key
+
+# Build stage: the locked pip dependencies go into a venv that also sees the apt packages above.
+# numpy comes from apt (picamera2 depends on it), so there is exactly one numpy in the image.
+# Only pyproject.toml and uv.lock are bind-mounted: this layer is rebuilt only when they change.
+FROM base AS build
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
+    UV_PYTHON=/usr/bin/python3 \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /app
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
     --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
-    uv sync --locked --no-dev \
+    uv venv --system-site-packages /opt/venv \
+ && uv sync --locked --no-dev --no-install-package numpy \
  && find /opt/venv -type d -name tests -prune -exec rm -rf {} + \
  && find /opt/venv -name '*.pyi' -delete
 
-# Runtime stage: same base, no uv, no build cache, no pip cache; just the venv and the source.
-FROM python:3.12-slim-bookworm
+FROM base
+ARG GIT_SHA=dev
 LABEL org.opencontainers.image.source="https://github.com/rangelovkiril/EDTH" \
-      org.opencontainers.image.description="EDTH RPi detection node"
+      org.opencontainers.image.description="EDTH RPi detection node" \
+      org.opencontainers.image.revision="${GIT_SHA}"
 ENV PATH=/opt/venv/bin:$PATH \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    EDTH_VERSION=${GIT_SHA}
 WORKDIR /app
 COPY --from=build /opt/venv /opt/venv
 COPY src ./src
