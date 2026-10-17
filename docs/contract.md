@@ -1,7 +1,7 @@
 # Message contract
 
 Passive sensing only: nodes publish bearings to airborne objects. Schemas in
-[`schemas/`](schemas/) are normative; this page explains them.
+[the `*.schema.json` files](.) are normative; this page explains them.
 
 ## Topics
 

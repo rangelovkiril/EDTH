@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-SCHEMAS = Path(__file__).resolve().parents[2] / "docs" / "schemas"
+SCHEMAS = Path(__file__).resolve().parents[2] / "docs"
 
 
 @pytest.fixture(scope="session")

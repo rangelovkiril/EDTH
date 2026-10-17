@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/rangelovkiril/EDTH/docs/schemas/status.schema.json",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/status.schema.json",
   "title": "Status",
   "description": "Node heartbeat, published on nodes/{id}/status about once per second.",
   "type": "object",

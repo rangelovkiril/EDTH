@@ -21,7 +21,7 @@ the broker and infra, not in custom backend code.
 
 ## Contract and topic map
 
-Normative text: [`docs/contract.md`](docs/contract.md). Schemas: `docs/schemas/`.
+Normative text: [`docs/contract.md`](docs/contract.md). Schemas: `docs/`.
 
 | Topic | Direction | Payload |
 |-------|-----------|---------|
@@ -31,7 +31,7 @@ Normative text: [`docs/contract.md`](docs/contract.md). Schemas: `docs/schemas/`
 | `detections/rejected/{id}` | broker → subscribers | rejected detections + `reason` |
 
 One message per detection; several may share a `frame`. A change to a payload
-updates `docs/contract.md`, `docs/schemas/`, `node/` and `infra/emqx/` in the same
+updates `docs/contract.md`, `docs/`, `node/` and `infra/emqx/` in the same
 commit.
 
 ## Where things live

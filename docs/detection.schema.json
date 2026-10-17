@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/rangelovkiril/EDTH/docs/schemas/detection.schema.json",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/detection.schema.json",
   "title": "Detection",
   "description": "A bearing to one airborne object, published on nodes/{id}/detections.",
   "type": "object",

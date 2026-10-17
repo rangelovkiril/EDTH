@@ -5,8 +5,8 @@ import time
 
 from .camera import Camera
 from .config import Config
-from .detectors.motion import MotionDetector
 from .geometry import CameraGeometry
+from .motion import MotionDetector
 from .publisher import Publisher, detection_payload
 from .status import StatusReporter
 
