@@ -30,7 +30,8 @@ are normative; this page explains them.
 | `conf` | number | Detector confidence, [0, 1] |
 | `frame` | integer | Node-local frame counter; several detections may share one |
 
-One message per detection. No video or pixels are sent.
+One message per detection. No video or pixels are sent to the broker. (The node can also serve a
+local, opt-in live view on its own HTTP port for demos; that is not part of this contract.)
 
 ## `nodes/{id}/status`
 

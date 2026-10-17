@@ -31,6 +31,8 @@ class Config:
     detector: str = "motion:MotionDetector"
     dry_run: bool = False
     health_file: str | None = "/tmp/edth-alive"
+    stream_port: int | None = None
+    stream_rotate: int = 0
 
     @classmethod
     def from_env(cls, env=None) -> "Config":
@@ -51,6 +53,9 @@ class Config:
         host = get("MQTT_HOST")
         if host is None and not dry_run:
             raise ValueError("MQTT_HOST is required (or set DRY_RUN=1)")
+        stream_rotate = int(get("STREAM_ROTATE", 0))
+        if stream_rotate not in (0, 90, 180, 270):
+            raise ValueError("STREAM_ROTATE must be 0, 90, 180 or 270")
         dist = get("CAMERA_DIST", "")
         return cls(
             node_id=node_id,
@@ -77,4 +82,6 @@ class Config:
             detector=get("DETECTOR", "motion:MotionDetector"),
             dry_run=dry_run,
             health_file=get("HEALTH_FILE", "/tmp/edth-alive"),
+            stream_port=num("STREAM_PORT", int),
+            stream_rotate=stream_rotate,
         )

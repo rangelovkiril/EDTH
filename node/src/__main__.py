@@ -11,6 +11,7 @@ from .geometry import CameraGeometry
 from .payloads import detection_payload
 from .publisher import DryRunPublisher, Publisher
 from .status import StatusReporter
+from .stream import Mark, Streamer
 
 log = logging.getLogger("edth.node")
 
@@ -29,8 +30,13 @@ def main() -> int:
     status = StatusReporter(publisher, cfg.ntp_server, health_file=cfg.health_file)
     camera = open_camera(cfg.camera_device, cfg.camera_width, cfg.camera_height, cfg.camera_fps)
     detector = load_detector(cfg.detector)
+    streamer = (
+        Streamer(cfg.node_id, cfg.stream_port, cfg.stream_rotate) if cfg.stream_port else None
+    )
     geometry = None
     publisher.start()
+    if streamer:
+        streamer.start()
     status.start()
     log.info(
         "event=start node=%s version=%s broker=%s:%s detector=%s camera=%s dry_run=%s",
@@ -58,8 +64,10 @@ def main() -> int:
                 geometry = CameraGeometry.from_config(cfg, width, height)
             frame_no += 1
             status.tick()
+            marks = []
             for d in detector.detect(frame):
                 az, el = geometry.pixel_to_azel(d.u, d.v)
+                marks.append(Mark(d.u, d.v, d.conf, az, el))
                 publisher.publish_detection(
                     detection_payload(cfg.node_id, t, az, el, d.conf, frame_no)
                 )
@@ -71,7 +79,11 @@ def main() -> int:
                     el,
                     d.conf,
                 )
+            if streamer:
+                streamer.update(frame, marks)
     finally:
+        if streamer:
+            streamer.stop()
         status.stop()
         publisher.stop()
         camera.close()

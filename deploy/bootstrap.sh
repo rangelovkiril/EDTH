@@ -68,6 +68,10 @@ else
     echo "NODE_HEADING_DEG=0"
     echo "NODE_PITCH_DEG=0"
     echo "NODE_ROLL_DEG=0"
+    echo "# Live camera view for demos on the local network (no password!): http://<pi>:8080/"
+    echo "# Remove the next line to turn it off. STREAM_ROTATE turns the picture (0, 90, 180, 270)."
+    echo "STREAM_PORT=8080"
+    echo "STREAM_ROTATE=0"
     if [[ -n ${MQTT_HOST:-} ]]; then
       echo "MQTT_HOST=$MQTT_HOST"
       echo "MQTT_PORT=${MQTT_PORT:-8883}"

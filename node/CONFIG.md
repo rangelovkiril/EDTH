@@ -16,9 +16,22 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `MQTT_CA_FILE` | system CAs | custom CA bundle |
 | `CAMERA_DEVICE` | `0` | `csi` (Raspberry Pi camera), a V4L2 index, or a video file path |
 | `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `CAMERA_FPS` | `640`, `480`, `30` | requested capture size and rate (cameras only) |
+| `STREAM_PORT` | unset (off) | serve a live view of the camera on this port (see below) |
+| `STREAM_ROTATE` | `0` | turn the live view by 0, 90, 180 or 270 degrees |
 | `HEALTH_FILE` | `/tmp/edth-alive` | touched while frames flow; the container healthcheck watches it |
 | `CAMERA_HFOV_DEG` | `70` | horizontal field of view when there is no calibration |
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
 | `NODE_HEADING_DEG`, `NODE_PITCH_DEG`, `NODE_ROLL_DEG` | `0` | mount pose: heading clockwise from north, pitch up, roll clockwise |
 | `NTP_SERVER` | `pool.ntp.org` | for `clock_offset_ms` |
+
+## Live view
+
+With `STREAM_PORT=8080` the node serves its camera on that port, for showing people what it sees:
+`http://<pi-address>:8080/` is a page, `/stream.mjpg` is a motion-JPEG stream (browser, VLC), `/snapshot.jpg`
+one frame. Detections are drawn on the picture with their bearing. Add `?rotate=90` to turn it, or set
+`STREAM_ROTATE`.
+
+It is a local demo tool: **no password**, so anyone on the same network can watch, and nothing in it goes
+to the MQTT broker. Leave `STREAM_PORT` unset to turn it off.
+
