@@ -3,3 +3,4 @@
 !uv.lock
 !src
 **/__pycache__
+!rpi-archive-keyring.pgp

@@ -5,20 +5,17 @@
 FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
 
 FROM debian:trixie-slim AS base
+# rpi-archive-keyring.pgp is Raspberry Pi's public archive key (fingerprint
+# CF8A1AF502A2AA2D763BAE7E82B129927FA3303E), copied from /usr/share/keyrings on Raspberry Pi OS.
+# The copy on their website is stale: apt's sqv rejects it for lack of a current binding signature.
+COPY rpi-archive-keyring.pgp /usr/share/keyrings/raspberrypi-archive-keyring.pgp
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
- && apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
- && curl -fsSL https://archive.raspberrypi.com/debian/raspberrypi.gpg.key -o /tmp/rpi.key \
- && gpg --show-keys --with-colons /tmp/rpi.key | grep -q '^fpr:::::::::CF8A1AF502A2AA2D763BAE7E82B129927FA3303E:' \
- && gpg --dearmor < /tmp/rpi.key > /usr/share/keyrings/raspberrypi-archive-keyring.gpg \
- && printf 'Types: deb\nURIs: http://archive.raspberrypi.com/debian/\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/raspberrypi-archive-keyring.gpg\n' \
+ && printf 'Types: deb\nURIs: http://archive.raspberrypi.com/debian/\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/raspberrypi-archive-keyring.pgp\n' \
       > /etc/apt/sources.list.d/raspi.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-numpy python3-picamera2 libcamera-ipa \
- && apt-get purge -y --auto-remove curl gnupg \
- && rm -f /tmp/rpi.key
+ && apt-get install -y --no-install-recommends python3 python3-numpy python3-picamera2 libcamera-ipa
 
 # Build stage: the locked pip dependencies go into a venv that also sees the apt packages above.
 # numpy comes from apt (picamera2 depends on it), so there is exactly one numpy in the image.
