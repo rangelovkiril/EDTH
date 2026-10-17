@@ -15,3 +15,5 @@ NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=/path/to/video.mp4 uv run python -m src
 
 Start with [`AGENTS.md`](AGENTS.md); detector authors continue in [`node/AGENTS.md`](node/AGENTS.md).
 The message contract is [`docs/contract.md`](docs/contract.md).
+
+Pushing to `main` deploys to the Pis; the one-time setup of a Pi is in [`deploy/`](deploy/README.md).

@@ -24,9 +24,8 @@ see every detection.
 | `src/detector.py` | detector authors (rarely) | `Detection` and the `Detector` protocol |
 | `src/motion.py` | detector authors | baseline motion detector; copy it as a starting point |
 | `src/<yours>.py` | detector authors | **add your detector here, as a new file** |
-| `src/camera.py` | camera authors | frame source (V4L2 or file) |
+| `src/camera.py` | camera authors | frame sources: Pi camera (`csi`), V4L2, video file |
 | `src/config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform owner | env config, MQTT, heartbeat, pixel → az/el, main loop |
-| `deploy.py`, `pis.json`, `edth-node.container`, `deploy.env.example` | platform owner | deploy to the Pis (below) |
 | `tests/` | everyone, for their own code | all published payloads are checked against `../docs/*.schema.json` |
 
 If you need a change in a platform file, ask rather than editing: it keeps parallel work from
@@ -88,8 +87,9 @@ Things to know:
 | `MQTT_TLS` | `1` | `0` for a local plain broker |
 | `MQTT_USERNAME`, `MQTT_PASSWORD` | unset | per-node credentials |
 | `MQTT_CA_FILE` | system CAs | custom CA bundle |
-| `CAMERA_DEVICE` | `0` | V4L2 index, or a video file path |
-| `CAMERA_WIDTH`, `CAMERA_HEIGHT` | `640`, `480` | requested capture size (cameras only) |
+| `CAMERA_DEVICE` | `0` | `csi` (Raspberry Pi camera), a V4L2 index, or a video file path |
+| `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `CAMERA_FPS` | `640`, `480`, `30` | requested capture size and rate (cameras only) |
+| `HEALTH_FILE` | `/tmp/edth-alive` | touched while frames flow; the container healthcheck watches it |
 | `CAMERA_HFOV_DEG` | `70` | horizontal field of view when there is no calibration |
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
@@ -104,37 +104,9 @@ uv run ruff check . && uv run ruff format . && uv run pytest
 
 CI runs the same, then builds the arm64 image on `main`.
 
-## Deploying to the Pis
+## Deploying
 
-`pis.json` is the list of Pis: `id` (becomes `NODE_ID` and the MQTT username), `host` (anything
-`ssh` accepts) and an optional `env` for per-Pi settings such as the mount heading.
-`deploy.py` reads it, plus `deploy.env` (gitignored; copy `deploy.env.example`) for the broker
-and passwords, and for each Pi installs the quadlet, writes the env file and the MQTT secret,
-pulls the image and restarts the service.
-
-One-time setup per Pi:
-
-```sh
-sudo apt install -y podman chrony        # chrony keeps the clock right, which timestamps rely on
-sudo usermod -aG video $USER             # camera access; log out and in again
-sudo loginctl enable-linger $USER        # lets the service run without a login session
-```
-
-Plus SSH access without a password prompt (`ssh-copy-id`) from the machine you deploy from, which
-must be able to reach the Pi (same network, VPN or tailnet). The image is public once CI has pushed it;
-if `podman pull` is denied, make the `edth-node` package public in the GitHub package settings.
-
-First deploy:
-
-```sh
-cd node
-cp deploy.env.example deploy.env        # fill in MQTT_HOST and the passwords
-$EDITOR pis.json                        # real ids and hosts
-./deploy.py --dry-run                   # prints what would run; passwords hidden
-./deploy.py --only rpi-1                # try one Pi first
-./deploy.py                             # then all of them
-```
-
-By default it deploys `sha-<first 7 of HEAD>`, the tag CI pushes after `main` goes green, so push
-first and wait for the `build` job. `--tag latest` or any older `sha-...` also works, which is the
-rollback. On a Pi: `journalctl --user -u edth-node -f` shows the logs, `podman ps` the container.
+Pushing to `main` deploys to the Pis: CI tests, builds the image and the deploy job restarts the
+node on each Pi. Nothing to run by hand; see [`../deploy/README.md`](../deploy/README.md) for how it
+works, the one-time Pi bootstrap, logs and rollback. Your detector runs in the same image, so add
+its dependencies with `uv add` and check the arm64 wheel exists.

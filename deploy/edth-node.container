@@ -1,0 +1,44 @@
+# Rootful Podman quadlet for the detection node: /etc/containers/systemd/edth-node.container
+# The deploy job of .github/workflows/node.yml installs this file and rewrites Image= to the exact
+# tag it just pulled, so the file on the Pi always names the version that runs. Machine-specific
+# settings live in /etc/edth/node.env (written by bootstrap.sh, never in git).
+[Unit]
+Description=EDTH detection node
+Wants=network-online.target
+After=network-online.target
+# Never give up restarting.
+StartLimitIntervalSec=0
+
+[Container]
+Image=ghcr.io/rangelovkiril/edth-node:latest
+ContainerName=edth-node
+# The deploy job pulls the image first; after a reboot it is already local, so no network is needed.
+Pull=missing
+EnvironmentFile=/etc/edth/node.env
+Network=host
+# libcamera opens /dev/media*, /dev/v4l-subdev*, /dev/video* and /dev/dma_heap/*, whose numbers
+# change between boots, so list-based device passthrough is brittle here.
+PodmanArgs=--privileged
+Volume=/run/udev:/run/udev:ro
+LogDriver=journald
+
+# Healthy = frames are flowing: the node touches /tmp/edth-alive each second it processed a frame.
+# A hung camera stops the file moving, podman kills the container, and Restart=always starts it
+# again. Notify=healthy makes `systemctl start/restart` wait for the first good check, so a deploy
+# of a broken build fails loudly instead of "succeeding".
+HealthCmd=python -c 'import os,sys,time; sys.exit(time.time()-os.stat("/tmp/edth-alive").st_mtime>30)'
+HealthInterval=15s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=90s
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=180
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

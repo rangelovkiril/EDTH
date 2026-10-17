@@ -3,9 +3,9 @@ name: node
 on:
   push:
     branches: [main]
-    paths: ["node/**", "docs/**", ".github/workflows/node.yml"]
+    paths: ["node/**", "docs/**", "deploy/**", ".github/workflows/node.yml"]
   pull_request:
-    paths: ["node/**", "docs/**", ".github/workflows/node.yml"]
+    paths: ["node/**", "docs/**", "deploy/**", ".github/workflows/node.yml"]
   workflow_dispatch:
 
 permissions:
@@ -51,6 +51,7 @@ jobs:
         with:
           context: node
           platforms: linux/arm64
+          build-args: GIT_SHA=${{ github.sha }}
           provenance: false
           sbom: false
           push: true
@@ -59,3 +60,62 @@ jobs:
             ${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Runs on the Pi itself, through the self-hosted runner that deploy/bootstrap.sh installed.
+  # Only pushes to main reach it: a pull request must never get to run code on a Pi.
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per Pi: the NODE_ID given to bootstrap.sh, which is also the runner's label.
+        pi: [rpi-1]
+    runs-on: [self-hosted, "${{ matrix.pi }}"]
+    timeout-minutes: 15
+    concurrency:
+      group: deploy-${{ matrix.pi }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/edth-node:${{ needs.build.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: deploy
+      - name: Pull the image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for attempt in 1 2 3; do
+            sudo podman pull "$IMAGE" && exit 0
+            sleep 10
+          done
+          exit 1
+      - name: Install the quadlet
+        run: |
+          sed "s|^Image=.*|Image=$IMAGE|" deploy/edth-node.container \
+            | sudo install -m 0644 /dev/stdin /etc/containers/systemd/edth-node.container
+          sudo systemctl daemon-reload
+      - name: Restart the node (waits for the first healthy check)
+        run: sudo systemctl restart edth-node.service
+      - name: Verify what is running
+        run: |
+          test "$(sudo podman inspect --format '{{.Config.Image}}' edth-node)" = "$IMAGE"
+          test "$(sudo podman exec edth-node printenv EDTH_VERSION)" = "$GITHUB_SHA"
+          sudo podman healthcheck run edth-node
+          # starts at boot: the quadlet's [Install] made multi-user.target want it
+          systemctl show multi-user.target -p Wants --value | tr ' ' '\n' | grep -qx edth-node.service
+          sudo journalctl -u edth-node.service -n 15 --no-pager
+      - name: Logs of the failed deploy
+        if: failure()
+        run: |
+          sudo systemctl status edth-node.service --no-pager || true
+          sudo journalctl -u edth-node.service -n 80 --no-pager || true
+          sudo podman ps -a || true
+      - name: Remove old images
+        if: always()
+        run: sudo podman image prune -f

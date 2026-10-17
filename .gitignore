@@ -21,5 +21,3 @@ secrets.*
 .idea/
 .DS_Store
 
-# Deploy config with passwords
-node/deploy.env

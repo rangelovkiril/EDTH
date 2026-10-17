@@ -21,8 +21,8 @@ Do not add infrastructure here.
 |------|------|
 | `node/` | the node program and its tests; start with [`node/AGENTS.md`](node/AGENTS.md) |
 | `docs/contract.md`, `docs/*.schema.json` | the message contract (normative) |
-| `.github/workflows/node.yml` | test, build the arm64 image, push to GHCR |
-| `node/deploy.py`, `node/pis.json` | deploy the image to the Pis |
+| `.github/workflows/node.yml` | test, build the arm64 image, deploy it to the Pis on push to `main` |
+| `deploy/` | one-time Pi bootstrap and the quadlet; see `deploy/README.md` |
 
 ## Contract in one table
 
@@ -59,11 +59,12 @@ Written down, not decided.
 1. **`az`/`el` frame and node pose.** Assumed: computed on the node from pixel, intrinsics and
    the configured mount heading/pitch/roll. Nobody downstream knows the pose.
 2. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`).
-3. **Camera:** USB (V4L2, default) or CSI (needs libcamera and more device access).
+3. **Camera:** the first Pi has a Camera Module 3 Wide (imx708_wide) on CSI; USB cameras work through V4L2.
+   The 102° HFOV is the datasheet value, not a calibration.
 4. **NTP egress** (UDP 123) from the Pis; without it `clock_offset_ms` is omitted.
 5. **Online/offline signal:** retained LWT on `status`, and a schema `version` field.
 6. **Project name:** repo history says "Triangulum", the brief says "M.I.G.E.T.".
-7. **Pi deployment** is `node/deploy.py` over SSH (from a machine that can reach the Pis).
-   Deploying from CI would need a network path to the Pis (VPN/tailnet); not set up.
-8. **Untested on real hardware:** the Pi camera path, the arm64 image and `deploy.py` on a real Pi
-   (it is tested against stubs).
+7. **Pi deployment** is GitHub Actions through a self-hosted runner on each Pi (`deploy/`). The runner
+   is effectively root on the Pi and the repository is public: set the fork-PR approval option.
+8. **Untested on real hardware:** the container image on a Pi (the camera code itself was run on one),
+   and surviving a reboot.
