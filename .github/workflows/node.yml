@@ -3,9 +3,9 @@ name: node
 on:
   push:
     branches: [main]
-    paths: ["node/**", "docs/schemas/**", "infra/rpi/**", ".github/workflows/node.yml"]
+    paths: ["node/**", "docs/**", ".github/workflows/node.yml"]
   pull_request:
-    paths: ["node/**", "docs/schemas/**", ".github/workflows/node.yml"]
+    paths: ["node/**", "docs/**", ".github/workflows/node.yml"]
   workflow_dispatch:
 
 permissions:
@@ -57,38 +57,3 @@ jobs:
             ${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [rpi-1, rpi-2]
-    # Each GitHub Environment holds DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS, DEPLOY_HOST, DEPLOY_USER.
-    environment: ${{ matrix.node }}
-    concurrency:
-      group: deploy-${{ matrix.node }}
-      cancel-in-progress: false
-    steps:
-      # The Pis are behind NAT: join the tailnet as an ephemeral node (ACL: tag:ci -> tag:rpi:22).
-      - uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-      - name: Deploy
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          TAG: ${{ needs.build.outputs.tag }}
-        run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/deploy_key
-          # The key is forced to run edth-deploy on the Pi; the command is the image tag.
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o BatchMode=yes -o ConnectTimeout=20 "$DEPLOY_USER@$DEPLOY_HOST" "$TAG"

@@ -1,9 +1,0 @@
-# Mounted at /etc/grafana/provisioning/dashboards/; edth.json sits in /var/lib/grafana/dashboards.
-apiVersion: 1
-providers:
-  - name: edth
-    type: file
-    disableDeletion: true
-    allowUiUpdates: false
-    options:
-      path: /var/lib/grafana/dashboards
