@@ -1,0 +1,13 @@
+# Let's Encrypt server certificate via cert-manager. The Exoscale NLB is L4, so the certificate
+# lives on the EMQX TLS listener. Edit the issuer and DNS name. EMQX reads the files at listener
+# start: after a renewal, restart the listener (or the pods) to serve the new certificate.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: edth-emqx-tls
+spec:
+  secretName: edth-emqx-tls
+  dnsNames: [mqtt.example.com]
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer

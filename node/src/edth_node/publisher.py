@@ -25,13 +25,13 @@ def detection_payload(node: str, t: float, az: float, el: float, conf: float, fr
 def status_payload(
     node: str, t: float, fps: float, temp_c: float | None, clock_offset_ms: float | None
 ) -> dict:
-    return {
-        "node": node,
-        "t": round(t, 6),
-        "fps": round(fps, 2),
-        "temp_c": None if temp_c is None else round(temp_c, 1),
-        "clock_offset_ms": None if clock_offset_ms is None else round(clock_offset_ms, 2),
-    }
+    payload = {"node": node, "t": round(t, 6), "fps": round(fps, 2)}
+    # Unavailable values are omitted, not null: EMQX maps absent fields to SQL NULL.
+    if temp_c is not None:
+        payload["temp_c"] = round(temp_c, 1)
+    if clock_offset_ms is not None:
+        payload["clock_offset_ms"] = round(clock_offset_ms, 2)
+    return payload
 
 
 class Publisher:

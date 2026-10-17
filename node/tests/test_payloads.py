@@ -27,7 +27,10 @@ def test_out_of_range_el_and_conf_are_clamped(validate):
 
 @pytest.mark.parametrize("temp,offset", [(54.2, -3.1), (None, None), (0.0, 0.0)])
 def test_status_payload_matches_schema(validate, temp, offset):
-    validate("status", status_payload("rpi-1", 1760000001.0, 29.7, temp, offset))
+    payload = status_payload("rpi-1", 1760000001.0, 29.7, temp, offset)
+    validate("status", payload)
+    assert ("temp_c" in payload) == (temp is not None)
+    assert ("clock_offset_ms" in payload) == (offset is not None)
 
 
 def test_schema_rejects_bad_payloads(validate):

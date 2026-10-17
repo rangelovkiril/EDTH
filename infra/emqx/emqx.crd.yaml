@@ -1,0 +1,177 @@
+# EMQX cluster for the demo, managed by EMQX Operator 3.x (apps.emqx.io/v3beta1, EMQX 5.9+/6.x).
+# spec.config.roots is plain YAML (no HOCON substitutions): the Operator renders it to EMQX config.
+# Apply with `kubectl apply -k .` (adds ConfigMap edth-emqx-acl and the Certificate). The Secret
+# edth-emqx-secrets must exist first (see secrets.example.yaml).
+apiVersion: apps.emqx.io/v3beta1
+kind: EMQX
+metadata:
+  name: edth-emqx
+spec:
+  image: emqx/emqx:6.3.2
+  config:
+    roots:
+      ## --- listeners: TLS only. Nodes connect to 8883 with username/password. ---
+      listeners:
+        tcp: {default: {enable: false}}
+        ws: {default: {enable: false}}
+        wss: {default: {enable: false}}
+        ssl:
+          default:
+            enable: true
+            bind: "0.0.0.0:8883"
+            ssl_options:
+              certfile: /opt/emqx/etc/tls/tls.crt
+              keyfile: /opt/emqx/etc/tls/tls.key
+
+      ## --- authn: built-in database, users bootstrapped from the Secret (plain, hashed on import) ---
+      authentication:
+        - mechanism: password_based
+          backend: built_in_database
+          user_id_type: username
+          password_hash_algorithm: {name: bcrypt}
+          bootstrap_file: /opt/emqx/etc/secrets/users.csv
+          bootstrap_type: plain
+
+      ## --- authz: file ACL, see acl.conf ---
+      authorization:
+        no_match: deny
+        deny_action: ignore
+        sources:
+          - type: file
+            enable: true
+            path: /opt/emqx/etc/acl/acl.conf   # ConfigMap edth-emqx-acl, generated from acl.conf
+
+      ## --- Postgres sink. EMQX does not expand ${ENV} here: edit the literals for your DBaaS. ---
+      connectors:
+        pgsql:
+          edth_pg:
+            server: "edth-pg.example.aivencloud.com:21699"
+            database: edth
+            username: emqx
+            password: "file:///opt/emqx/etc/secrets/pg_password"
+            pool_size: 8
+            ssl:
+              enable: true
+              verify: verify_peer
+              cacertfile: /opt/emqx/etc/secrets/pg-ca.pem
+
+      actions:
+        pgsql:
+          det_insert:
+            connector: edth_pg
+            enable: true
+            parameters:
+              sql: >-
+                INSERT INTO detections (ts, node, az, el, conf, frame, latency_ms)
+                VALUES (to_timestamp(${t}), ${node}, ${az}, ${el}, ${conf}, ${frame}, ${latency_ms})
+          det_reject_insert:
+            connector: edth_pg
+            enable: true
+            parameters:
+              sql: >-
+                INSERT INTO detections_rejected (node, reason) VALUES (${node}, ${reason})
+          status_insert:
+            connector: edth_pg
+            enable: true
+            parameters:
+              sql: >-
+                INSERT INTO node_status (ts, node, fps, temp_c, clock_offset_ms)
+                VALUES (to_timestamp(${t}), ${node}, ${fps}, ${temp_c}, ${clock_offset_ms})
+
+      ## --- rules. The node id always comes from the topic (the ACL makes it the publisher's
+      ##     clientid); payload.node must agree with it. ---
+      rule_engine:
+        rules:
+          det_accept:
+            enable: true
+            sql: |
+              SELECT
+                nth(2, split(topic, '/')) AS node,
+                payload.t AS t,
+                round(payload.az * 1000) / 1000 AS az,
+                round(payload.el * 1000) / 1000 AS el,
+                round(payload.conf * 1000) / 1000 AS conf,
+                payload.frame AS frame,
+                now_timestamp('millisecond') AS ingest_ms,
+                now_timestamp('millisecond') - payload.t * 1000 AS latency_ms
+              FROM "nodes/+/detections"
+              WHERE payload.node = nth(2, split(topic, '/'))
+                AND is_num(payload.t) AND is_num(payload.frame)
+                AND payload.conf >= 0.5 AND payload.conf <= 1
+                AND payload.az >= 0 AND payload.az < 360
+                AND payload.el >= -90 AND payload.el <= 90
+            actions:
+              - "pgsql:det_insert"
+              - function: republish
+                args: {topic: "detections/clean/${node}", qos: 0, retain: false, payload: "${.}"}
+
+          det_reject:
+            enable: true
+            sql: |
+              SELECT
+                nth(2, split(topic, '/')) AS node,
+                payload.node AS claimed_node,
+                payload.t AS t,
+                payload.az AS az,
+                payload.el AS el,
+                payload.conf AS conf,
+                payload.frame AS frame,
+                CASE
+                  WHEN payload.node != nth(2, split(topic, '/')) THEN 'node_mismatch'
+                  WHEN is_null(payload.t) OR is_null(payload.frame) OR is_null(payload.conf)
+                    OR is_null(payload.az) OR is_null(payload.el)
+                    OR payload.conf < 0 OR payload.conf > 1
+                    OR payload.az < 0 OR payload.az >= 360
+                    OR payload.el < -90 OR payload.el > 90 THEN 'range'
+                  ELSE 'low_conf'
+                END AS reason
+              FROM "nodes/+/detections"
+              WHERE payload.node != nth(2, split(topic, '/'))
+                OR is_null(payload.t) OR is_null(payload.frame) OR is_null(payload.conf)
+                OR is_null(payload.az) OR is_null(payload.el)
+                OR payload.conf < 0.5 OR payload.conf > 1
+                OR payload.az < 0 OR payload.az >= 360
+                OR payload.el < -90 OR payload.el > 90
+            actions:
+              - "pgsql:det_reject_insert"
+              - function: republish
+                args: {topic: "detections/rejected/${node}", qos: 0, retain: false, payload: "${.}"}
+
+          status_sink:
+            enable: true
+            sql: |
+              SELECT
+                nth(2, split(topic, '/')) AS node,
+                payload.t AS t,
+                payload.fps AS fps,
+                payload.temp_c AS temp_c,
+                payload.clock_offset_ms AS clock_offset_ms
+              FROM "nodes/+/status"
+              WHERE payload.node = nth(2, split(topic, '/')) AND is_num(payload.t)
+            actions: ["pgsql:status_insert"]
+
+  coreTemplate:
+    spec:
+      # A multi-node cluster needs a licence key since EMQX 5.9; use replicas: 1 on the free licence.
+      replicas: 3
+      env:
+        - name: EMQX_LICENSE__KEY
+          valueFrom: {secretKeyRef: {name: edth-emqx-secrets, key: license_key, optional: true}}
+        - name: EMQX_DASHBOARD__DEFAULT_PASSWORD
+          valueFrom: {secretKeyRef: {name: edth-emqx-secrets, key: dashboard_password}}
+      extraVolumes:
+        - name: secrets
+          secret: {secretName: edth-emqx-secrets}
+        - name: tls
+          secret: {secretName: edth-emqx-tls}
+        - name: acl
+          configMap: {name: edth-emqx-acl}
+      extraVolumeMounts:
+        - {name: secrets, mountPath: /opt/emqx/etc/secrets, readOnly: true}
+        - {name: tls, mountPath: /opt/emqx/etc/tls, readOnly: true}
+        - {name: acl, mountPath: /opt/emqx/etc/acl, readOnly: true}
+
+  # Exoscale's cloud controller turns this into an NLB. The NLB is L4: TLS terminates on EMQX.
+  listenersServiceTemplate:
+    spec:
+      type: LoadBalancer

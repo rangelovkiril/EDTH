@@ -13,6 +13,7 @@ build/
 *.secrets
 secrets.*
 !*.example
+!*.example.*
 infra/rpi/*.env
 .env
 

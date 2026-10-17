@@ -5,12 +5,12 @@
   "description": "Node heartbeat, published on nodes/{id}/status about once per second.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["node", "t", "fps", "temp_c", "clock_offset_ms"],
+  "required": ["node", "t", "fps"],
   "properties": {
     "node": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
     "t": {"type": "number", "description": "Unix seconds when sent"},
     "fps": {"type": "number", "minimum": 0},
-    "temp_c": {"type": ["number", "null"]},
-    "clock_offset_ms": {"type": ["number", "null"], "description": "Local clock minus NTP"}
+    "temp_c": {"type": "number", "description": "SoC temperature; omitted if unreadable"},
+    "clock_offset_ms": {"type": "number", "description": "Local clock minus NTP; omitted if the query failed"}
   }
 }

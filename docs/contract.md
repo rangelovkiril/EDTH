@@ -42,8 +42,8 @@ One message per detection. No video or pixels are sent.
 | `node` | string | Node id; must equal the topic `{id}` |
 | `t` | number | Unix time in seconds when the status was sent |
 | `fps` | number | Processed frames per second (over the last interval) |
-| `temp_c` | number \| null | SoC temperature; `null` if unreadable |
-| `clock_offset_ms` | number \| null | Local clock minus NTP time; `null` if the query failed |
+| `temp_c` | number, optional | SoC temperature; omitted if unreadable |
+| `clock_offset_ms` | number, optional | Local clock minus NTP time; omitted if the query failed |
 
 A node counts as connected while its latest `status` is under 15 s old.
 
@@ -51,13 +51,15 @@ A node counts as connected while its latest `status` is under 15 s old.
 
 `detections/clean/{id}` carries the accepted payload plus `ingest_ms` (broker time)
 and `latency_ms = ingest_ms − t·1000`. `detections/rejected/{id}` carries the
-original payload plus `reason`: `low_conf`, `range` or `node_mismatch`.
+original fields (`node` renamed `claimed_node`; missing fields stay missing) plus
+`reason`: `low_conf`, `range` or `node_mismatch`.
 
 ## Open points (proposals, not decisions)
 
 - **Angle frame.** `az`/`el` are computed on the node from pixel, intrinsics and the
   configured mount heading/pitch/roll. Nobody downstream knows the pose.
-- **`status` fields** are a proposal; `null` for `temp_c`/`clock_offset_ms` is an
-  extension so a node on a machine without sensors or NTP still reports.
+- **`status` fields** are a proposal; omitting `temp_c`/`clock_offset_ms` when unavailable is an
+  extension so a node without sensors or NTP still reports. (Omitted, not `null`: EMQX
+  turns an absent field into SQL NULL, but passes JSON `null` to Postgres as the string `"null"`.)
 - **`t` accuracy** is only as good as the node clock; chrony/NTP must run on the host.
 - **No schema version field** and no retained online/offline (LWT) signal yet.
