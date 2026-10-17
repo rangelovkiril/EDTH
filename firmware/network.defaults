@@ -1,7 +1,0 @@
-# Shared radio configuration for all apps (docs/radio.md).
-CONFIG_TR_ESPNOW_CHANNEL=6
-# Fill in real MACs (esptool.py read_mac).
-CONFIG_TR_COLLECTOR_MAC="00:00:00:00:00:00"
-CONFIG_TR_GROUND_MAC="00:00:00:00:00:00"
-# node_id=MAC pairs, comma-separated.
-CONFIG_TR_OBSERVER_PEERS="1=00:00:00:00:00:00,2=00:00:00:00:00:00"
