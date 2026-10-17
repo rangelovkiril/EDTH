@@ -8,7 +8,7 @@ NODE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 @dataclass(frozen=True)
 class Config:
     node_id: str
-    mqtt_host: str
+    mqtt_host: str | None
     mqtt_port: int = 8883
     mqtt_tls: bool = True
     mqtt_username: str | None = None
@@ -27,6 +27,8 @@ class Config:
     pitch_deg: float = 0.0
     roll_deg: float = 0.0
     ntp_server: str = "pool.ntp.org"
+    detector: str = "motion:MotionDetector"
+    dry_run: bool = False
 
     @classmethod
     def from_env(cls, env=None) -> "Config":
@@ -43,9 +45,10 @@ class Config:
         node_id = get("NODE_ID")
         if node_id is None or not NODE_ID_RE.match(node_id):
             raise ValueError("NODE_ID is required and must match [a-z0-9][a-z0-9_-]*")
+        dry_run = get("DRY_RUN", "0").lower() in ("1", "true", "yes")
         host = get("MQTT_HOST")
-        if host is None:
-            raise ValueError("MQTT_HOST is required")
+        if host is None and not dry_run:
+            raise ValueError("MQTT_HOST is required (or set DRY_RUN=1)")
         dist = get("CAMERA_DIST", "")
         return cls(
             node_id=node_id,
@@ -68,4 +71,6 @@ class Config:
             pitch_deg=float(get("NODE_PITCH_DEG", 0)),
             roll_deg=float(get("NODE_ROLL_DEG", 0)),
             ntp_server=get("NTP_SERVER", "pool.ntp.org"),
+            detector=get("DETECTOR", "motion:MotionDetector"),
+            dry_run=dry_run,
         )

@@ -81,3 +81,29 @@ class Publisher:
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         log.warning("event=mqtt_disconnect node=%s rc=%s", self.node, reason_code)
+
+
+class DryRunPublisher:
+    """Same interface as Publisher, but prints each message as `topic payload` on stdout."""
+
+    dropped = 0
+    connected = True
+
+    def __init__(self, cfg: Config):
+        self.node = cfg.node_id
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def publish(self, kind: str, payload: dict) -> bool:
+        print(f"nodes/{self.node}/{kind} {json.dumps(payload, separators=(',', ':'))}", flush=True)
+        return True
+
+    def publish_detection(self, payload: dict) -> bool:
+        return self.publish("detections", payload)
+
+    def publish_status(self, payload: dict) -> bool:
+        return self.publish("status", payload)

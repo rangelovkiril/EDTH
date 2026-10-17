@@ -1,13 +1,14 @@
 import logging
+import os
 import signal
 import threading
 import time
 
 from .camera import Camera
 from .config import Config
+from .detector import load_detector
 from .geometry import CameraGeometry
-from .motion import MotionDetector
-from .publisher import Publisher, detection_payload
+from .publisher import DryRunPublisher, Publisher, detection_payload
 from .status import StatusReporter
 
 log = logging.getLogger("edth.node")
@@ -15,21 +16,29 @@ log = logging.getLogger("edth.node")
 
 def main() -> int:
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s level=%(levelname)s logger=%(name)s %(message)s"
+        level=os.environ.get("LOG_LEVEL", "INFO"),
+        format="%(asctime)s level=%(levelname)s logger=%(name)s %(message)s",
     )
     cfg = Config.from_env()
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
 
-    publisher = Publisher(cfg)
+    publisher = DryRunPublisher(cfg) if cfg.dry_run else Publisher(cfg)
     status = StatusReporter(publisher, cfg.ntp_server)
     camera = Camera(cfg.camera_device, cfg.camera_width, cfg.camera_height)
-    detector = MotionDetector()  # swap in another Detector here
+    detector = load_detector(cfg.detector)
     geometry = None
     publisher.start()
     status.start()
-    log.info("event=start node=%s broker=%s:%d", cfg.node_id, cfg.mqtt_host, cfg.mqtt_port)
+    log.info(
+        "event=start node=%s broker=%s:%s detector=%s dry_run=%s",
+        cfg.node_id,
+        cfg.mqtt_host,
+        cfg.mqtt_port,
+        cfg.detector,
+        cfg.dry_run,
+    )
 
     frame_no = 0
     rc = 0
