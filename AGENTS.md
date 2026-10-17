@@ -22,6 +22,7 @@ Do not add infrastructure here.
 | `node/` | the node program and its tests; start with [`node/AGENTS.md`](node/AGENTS.md) |
 | `docs/contract.md`, `docs/*.schema.json` | the message contract (normative) |
 | `.github/workflows/node.yml` | test, build the arm64 image, push to GHCR |
+| `node/deploy.py`, `node/pis.json` | deploy the image to the Pis |
 
 ## Contract in one table
 
@@ -62,6 +63,7 @@ Written down, not decided.
 4. **NTP egress** (UDP 123) from the Pis; without it `clock_offset_ms` is omitted.
 5. **Online/offline signal:** retained LWT on `status`, and a schema `version` field.
 6. **Project name:** repo history says "Triangulum", the brief says "M.I.G.E.T.".
-7. **Pi deployment** (container on the Pi, CI deploy). The earlier quadlet and deploy script are
-   in history at commit `a97c230`; it belongs in EDTH-infra if wanted.
-8. **Untested on real hardware:** the Pi camera path and the arm64 image.
+7. **Pi deployment** is `node/deploy.py` over SSH (from a machine that can reach the Pis).
+   Deploying from CI would need a network path to the Pis (VPN/tailnet); not set up.
+8. **Untested on real hardware:** the Pi camera path, the arm64 image and `deploy.py` on a real Pi
+   (it is tested against stubs).

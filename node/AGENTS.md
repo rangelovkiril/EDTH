@@ -26,6 +26,7 @@ see every detection.
 | `src/<yours>.py` | detector authors | **add your detector here, as a new file** |
 | `src/camera.py` | camera authors | frame source (V4L2 or file) |
 | `src/config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform owner | env config, MQTT, heartbeat, pixel → az/el, main loop |
+| `deploy.py`, `pis.json`, `edth-node.container`, `deploy.env.example` | platform owner | deploy to the Pis (below) |
 | `tests/` | everyone, for their own code | all published payloads are checked against `../docs/*.schema.json` |
 
 If you need a change in a platform file, ask rather than editing: it keeps parallel work from
@@ -102,3 +103,38 @@ uv run ruff check . && uv run ruff format . && uv run pytest
 ```
 
 CI runs the same, then builds the arm64 image on `main`.
+
+## Deploying to the Pis
+
+`pis.json` is the list of Pis: `id` (becomes `NODE_ID` and the MQTT username), `host` (anything
+`ssh` accepts) and an optional `env` for per-Pi settings such as the mount heading.
+`deploy.py` reads it, plus `deploy.env` (gitignored; copy `deploy.env.example`) for the broker
+and passwords, and for each Pi installs the quadlet, writes the env file and the MQTT secret,
+pulls the image and restarts the service.
+
+One-time setup per Pi:
+
+```sh
+sudo apt install -y podman chrony        # chrony keeps the clock right, which timestamps rely on
+sudo usermod -aG video $USER             # camera access; log out and in again
+sudo loginctl enable-linger $USER        # lets the service run without a login session
+```
+
+Plus SSH access without a password prompt (`ssh-copy-id`) from the machine you deploy from, which
+must be able to reach the Pi (same network, VPN or tailnet). The image is public once CI has pushed it;
+if `podman pull` is denied, make the `edth-node` package public in the GitHub package settings.
+
+First deploy:
+
+```sh
+cd node
+cp deploy.env.example deploy.env        # fill in MQTT_HOST and the passwords
+$EDITOR pis.json                        # real ids and hosts
+./deploy.py --dry-run                   # prints what would run; passwords hidden
+./deploy.py --only rpi-1                # try one Pi first
+./deploy.py                             # then all of them
+```
+
+By default it deploys `sha-<first 7 of HEAD>`, the tag CI pushes after `main` goes green, so push
+first and wait for the `build` job. `--tag latest` or any older `sha-...` also works, which is the
+rollback. On a Pi: `journalctl --user -u edth-node -f` shows the logs, `podman ps` the container.
