@@ -17,6 +17,7 @@ class Config:
     camera_device: str = "0"
     camera_width: int = 640
     camera_height: int = 480
+    camera_fps: float = 30.0
     camera_hfov_deg: float = 70.0
     camera_fx: float | None = None
     camera_fy: float | None = None
@@ -29,6 +30,7 @@ class Config:
     ntp_server: str = "pool.ntp.org"
     detector: str = "motion:MotionDetector"
     dry_run: bool = False
+    health_file: str | None = "/tmp/edth-alive"
 
     @classmethod
     def from_env(cls, env=None) -> "Config":
@@ -61,6 +63,7 @@ class Config:
             camera_device=get("CAMERA_DEVICE", "0"),
             camera_width=int(get("CAMERA_WIDTH", 640)),
             camera_height=int(get("CAMERA_HEIGHT", 480)),
+            camera_fps=float(get("CAMERA_FPS", 30)),
             camera_hfov_deg=float(get("CAMERA_HFOV_DEG", 70)),
             camera_fx=num("CAMERA_FX"),
             camera_fy=num("CAMERA_FY"),
@@ -73,4 +76,5 @@ class Config:
             ntp_server=get("NTP_SERVER", "pool.ntp.org"),
             detector=get("DETECTOR", "motion:MotionDetector"),
             dry_run=dry_run,
+            health_file=get("HEALTH_FILE", "/tmp/edth-alive"),
         )

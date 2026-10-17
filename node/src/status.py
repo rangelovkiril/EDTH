@@ -45,12 +45,18 @@ class StatusReporter:
     """Publishes `status` about once a second; the main loop calls `tick()` per frame."""
 
     def __init__(
-        self, publisher: Publisher, ntp_server: str, interval: float = 1.0, ntp_every: float = 30.0
+        self,
+        publisher: Publisher,
+        ntp_server: str,
+        interval: float = 1.0,
+        ntp_every: float = 30.0,
+        health_file: str | None = None,
     ):
         self.publisher = publisher
         self.ntp_server = ntp_server
         self.interval = interval
         self.ntp_every = ntp_every
+        self.health_file = health_file
         self._frames = 0
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -81,6 +87,8 @@ class StatusReporter:
                 frames, self._frames = self._frames, 0
             fps = frames / (now - last)
             last = now
+            if frames and self.health_file:
+                self._touch_health_file()
             payload = status_payload(
                 self.publisher.node, time.time(), fps, read_temp_c(), self._offset
             )
@@ -91,3 +99,10 @@ class StatusReporter:
                 fps,
                 self.publisher.dropped,
             )
+
+    def _touch_health_file(self) -> None:
+        """The container healthcheck looks at this file's age: it only moves while frames flow."""
+        try:
+            Path(self.health_file).touch()
+        except OSError as e:
+            log.warning("event=health_file_error path=%s error=%s", self.health_file, e)

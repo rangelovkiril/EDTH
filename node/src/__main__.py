@@ -4,7 +4,7 @@ import signal
 import threading
 import time
 
-from .camera import Camera
+from .camera import open_camera
 from .config import Config
 from .detector import load_detector
 from .geometry import CameraGeometry
@@ -25,18 +25,20 @@ def main() -> int:
         signal.signal(sig, lambda *_: stop.set())
 
     publisher = DryRunPublisher(cfg) if cfg.dry_run else Publisher(cfg)
-    status = StatusReporter(publisher, cfg.ntp_server)
-    camera = Camera(cfg.camera_device, cfg.camera_width, cfg.camera_height)
+    status = StatusReporter(publisher, cfg.ntp_server, health_file=cfg.health_file)
+    camera = open_camera(cfg.camera_device, cfg.camera_width, cfg.camera_height, cfg.camera_fps)
     detector = load_detector(cfg.detector)
     geometry = None
     publisher.start()
     status.start()
     log.info(
-        "event=start node=%s broker=%s:%s detector=%s dry_run=%s",
+        "event=start node=%s version=%s broker=%s:%s detector=%s camera=%s dry_run=%s",
         cfg.node_id,
+        os.environ.get("EDTH_VERSION", "dev"),
         cfg.mqtt_host,
         cfg.mqtt_port,
         cfg.detector,
+        cfg.camera_device,
         cfg.dry_run,
     )
 
@@ -49,7 +51,7 @@ def main() -> int:
                 log.error("event=camera_eof node=%s", cfg.node_id)
                 rc = 1  # let the supervisor (systemd) restart us
                 break
-            t = time.time()  # closest we get to capture time over V4L2
+            t = camera.captured_at or time.time()  # sensor time if known, else the read time
             if geometry is None:
                 height, width = frame.shape[:2]
                 geometry = CameraGeometry.from_config(cfg, width, height)

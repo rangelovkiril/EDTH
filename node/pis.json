@@ -1,4 +1,0 @@
-[
-  {"id": "rpi-1", "host": "pi@rpi-1.local", "env": {"NODE_HEADING_DEG": "0"}},
-  {"id": "rpi-2", "host": "pi@rpi-2.local", "env": {"NODE_HEADING_DEG": "90"}}
-]
