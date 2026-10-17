@@ -1,43 +1,105 @@
-# node — RPi node software
+# node — guide for people writing code here
 
-Passive sensing: reads a camera, finds airborne objects, publishes bearings.
-No video leaves the device. Contract: [`../docs/contract.md`](../docs/contract.md).
+The node reads frames from a camera, asks a **detector** where the airborne objects are in the
+image, converts each pixel to a bearing (azimuth/elevation) and publishes it over MQTT. Passive
+sensing only. Contract: [`../docs/contract.md`](../docs/contract.md).
 
-## Layout
+## Quick start (no camera, no broker)
 
-| File | Owner | Notes |
-|------|-------|-------|
-| `camera.py` | **detector teammates** | Frame source: `Camera.read() -> ndarray \| None` |
-| `detectors/base.py`, `detectors/motion.py` | **detector teammates** | `Detector.detect(frame) -> list[Detection]`; `motion.py` is a baseline |
-| `config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform | Env config, MQTT, heartbeat, pixel → az/el |
-| `tests/` | platform | Every published payload is validated against `docs/schemas/` |
+```sh
+cd node
+uv sync
+uv run pytest                                   # should be green before you start
+NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m edth_node
+```
 
-Detectors return **pixel** centres plus confidence. The platform converts to az/el.
-To add a detector: implement `Detector`, select it in `__main__.py`; do not touch
-publishing, status or geometry.
+`DRY_RUN=1` prints `topic payload` lines to stdout instead of publishing (logs go to stderr).
+`CAMERA_DEVICE` is a video file path, or `0` for the first V4L2 camera. Set `LOG_LEVEL=DEBUG` to
+see every detection.
+
+## What lives where
+
+| File | Who edits | What it does |
+|------|-----------|--------------|
+| `edth_node/detector.py` | detector authors (rarely) | `Detection` and the `Detector` protocol |
+| `edth_node/motion.py` | detector authors | baseline motion detector; copy it as a starting point |
+| `edth_node/<yours>.py` | detector authors | **add your detector here, as a new file** |
+| `edth_node/camera.py` | camera authors | frame source (V4L2 or file) |
+| `edth_node/config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform owner | env config, MQTT, heartbeat, pixel → az/el, main loop |
+| `tests/` | everyone, for their own code | all published payloads are checked against `../docs/*.schema.json` |
+
+If you need a change in a platform file, ask rather than editing: it keeps parallel work from
+colliding.
+
+## Writing a detector
+
+A detector is any class with a no-argument constructor and a `detect` method. It gets one BGR
+frame (`numpy` array, `uint8`, shape `H×W×3`) and returns the **pixel** centres of what it found.
+You never deal with angles, MQTT or time.
+
+```python
+# edth_node/yolo.py
+import numpy as np
+
+from .detector import Detection
+
+
+class YoloDetector:
+    def __init__(self):
+        ...  # load the model once
+
+    def detect(self, frame: np.ndarray) -> list[Detection]:
+        # u = x pixel (right), v = y pixel (down), conf in [0, 1]
+        return [Detection(u=412.0, v=88.5, conf=0.9)]
+```
+
+Run it by name, without touching `__main__.py`:
+
+```sh
+DETECTOR=yolo:YoloDetector NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m edth_node
+```
+
+`DETECTOR` is `module:Class`; a module name without a dot is looked up inside `edth_node`.
+
+Things to know:
+
+- **Return only what you believe.** Several detections per frame are fine. Return `[]` when
+  there is nothing. The broker later drops anything with `conf < 0.5`, so calibrate `conf` honestly.
+- **Keep up with the camera.** The Pi has to stay near the camera frame rate. `status.fps` shows
+  the real rate; if it drops, shrink the input or skip work. Detectors are called once per frame,
+  on the main thread.
+- **State is fine.** Trackers and background models can live on the instance (see `motion.py`).
+- **No network, no files at import time**, and no printing to stdout: stdout is the payload
+  stream in `DRY_RUN`. Use `logging`.
+- **Add dependencies** with `uv add <pkg>`; the lockfile is committed. The Pi image is arm64, so
+  prefer packages with arm64 wheels, and keep the image small (`opencv-python-headless`, no GUI).
+- **Test it** with a synthetic frame, like `tests/test_motion.py`.
 
 ## Configuration (environment)
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `NODE_ID` | required | e.g. `rpi-1`; also the MQTT client id |
-| `MQTT_HOST` | required | broker host |
+| `NODE_ID` | required | e.g. `rpi-1`; also the MQTT client id and username |
+| `DRY_RUN` | `0` | `1`: print instead of publishing; `MQTT_HOST` not needed |
+| `DETECTOR` | `motion:MotionDetector` | `module:Class` |
+| `LOG_LEVEL` | `INFO` | |
+| `MQTT_HOST` | required unless `DRY_RUN` | broker host |
 | `MQTT_PORT` | `8883` | |
 | `MQTT_TLS` | `1` | `0` for a local plain broker |
 | `MQTT_USERNAME`, `MQTT_PASSWORD` | unset | per-node credentials |
 | `MQTT_CA_FILE` | system CAs | custom CA bundle |
-| `CAMERA_DEVICE` | `0` | V4L2 index, or a video file path for development |
-| `CAMERA_WIDTH`, `CAMERA_HEIGHT` | `640`, `480` | requested capture size |
-| `CAMERA_HFOV_DEG` | `70` | horizontal field of view when no calibration is given |
+| `CAMERA_DEVICE` | `0` | V4L2 index, or a video file path |
+| `CAMERA_WIDTH`, `CAMERA_HEIGHT` | `640`, `480` | requested capture size (cameras only) |
+| `CAMERA_HFOV_DEG` | `70` | horizontal field of view when there is no calibration |
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
 | `NODE_HEADING_DEG`, `NODE_PITCH_DEG`, `NODE_ROLL_DEG` | `0` | mount pose: heading clockwise from north, pitch up, roll clockwise |
 | `NTP_SERVER` | `pool.ntp.org` | for `clock_offset_ms` |
 
-## Commands
+## Before you push
 
 ```sh
-uv sync
-uv run pytest
-uv run ruff check .
+uv run ruff check . && uv run ruff format . && uv run pytest
 ```
+
+CI runs the same, then builds the arm64 image on `main`.

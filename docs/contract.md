@@ -1,7 +1,8 @@
 # Message contract
 
-Passive sensing only: nodes publish bearings to airborne objects. Schemas in
-[the `*.schema.json` files](.) are normative; this page explains them.
+Passive sensing only: nodes publish bearings to airborne objects. The JSON Schemas
+([`detection.schema.json`](detection.schema.json), [`status.schema.json`](status.schema.json))
+are normative; this page explains them.
 
 ## Topics
 
@@ -9,8 +10,8 @@ Passive sensing only: nodes publish bearings to airborne objects. Schemas in
 |-------|-----------|-----|----------|------|
 | `nodes/{id}/detections` | node `{id}` | 0 | no | per detection |
 | `nodes/{id}/status` | node `{id}` | 0 | no | ≈1 Hz |
-| `detections/clean/{id}` | EMQX rule `det_accept` | 0 | no | per accepted detection |
-| `detections/rejected/{id}` | EMQX rule `det_reject` | 0 | no | per rejected detection |
+| `detections/clean/{id}` | broker rule (planned) | 0 | no | per accepted detection |
+| `detections/rejected/{id}` | broker rule (planned) | 0 | no | per rejected detection |
 
 `{id}` matches `^[a-z0-9][a-z0-9_-]*$` (e.g. `rpi-1`) and equals the MQTT client id.
 
@@ -47,7 +48,11 @@ One message per detection. No video or pixels are sent.
 
 A node counts as connected while its latest `status` is under 15 s old.
 
-## Broker-side topics
+## Broker-side topics (planned)
+
+The broker lives in the `EDTH-infra` repo. These rules are not deployed there yet; a tested
+reference (EMQX rules, ACL, Postgres schema) is in this repo's history at commit `56f1ccc`,
+under `infra/emqx/`.
 
 `detections/clean/{id}` carries the accepted payload plus `ingest_ms` (broker time)
 and `latency_ms = ingest_ms − t·1000`. `detections/rejected/{id}` carries the
