@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from src.status import _NTP_EPOCH_OFFSET, ntp_offset_ms, read_temp_c
+from src.clock import NTP_EPOCH_OFFSET, ntp_offset_ms
 
 
 def fake_ntp_server(skew_s):
@@ -15,7 +15,7 @@ def fake_ntp_server(skew_s):
 
     def serve():
         _, addr = sock.recvfrom(512)
-        now = time.time() + skew_s + _NTP_EPOCH_OFFSET
+        now = time.time() + skew_s + NTP_EPOCH_OFFSET
         sec, frac = int(now), int((now % 1) * 2**32)
         reply = bytearray(48)
         reply[32:48] = struct.pack("!4I", sec, frac, sec, frac)
@@ -39,10 +39,3 @@ def test_unreachable_server_is_none():
     port = s.getsockname()[1]
     assert ntp_offset_ms("127.0.0.1", port=port, timeout=0.2) is None
     s.close()
-
-
-def test_missing_thermal_zone_is_none(tmp_path):
-    assert read_temp_c(tmp_path / "nope") is None
-    f = tmp_path / "temp"
-    f.write_text("54200\n")
-    assert read_temp_c(f) == 54.2

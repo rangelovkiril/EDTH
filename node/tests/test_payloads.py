@@ -5,7 +5,8 @@ import pytest
 from jsonschema import ValidationError
 
 from src.config import Config
-from src.publisher import Publisher, detection_payload, status_payload
+from src.payloads import detection_payload, status_payload
+from src.publisher import Publisher
 
 
 def test_detection_payload_matches_schema(validate):

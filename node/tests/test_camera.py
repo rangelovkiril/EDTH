@@ -6,9 +6,6 @@ import numpy as np
 import pytest
 
 from src import camera
-from src.config import Config
-from src.publisher import DryRunPublisher
-from src.status import StatusReporter
 
 
 def install_fake_picamera2(monkeypatch):
@@ -96,32 +93,3 @@ def test_csi_without_picamera2_explains_itself(monkeypatch):
     monkeypatch.setitem(sys.modules, "picamera2", None)  # makes the import fail
     with pytest.raises(RuntimeError, match="python3-picamera2"):
         camera.open_camera("csi", 640, 480)
-
-
-def wait_for(condition, timeout=5.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if condition():
-            return True
-        time.sleep(0.02)
-    return False
-
-
-def test_health_file_moves_only_while_frames_flow(tmp_path):
-    cfg = Config.from_env({"NODE_ID": "rpi-1", "DRY_RUN": "1"})
-    health = tmp_path / "alive"
-    reporter = StatusReporter(
-        DryRunPublisher(cfg), "127.0.0.1", interval=0.05, ntp_every=1e9, health_file=str(health)
-    )
-    reporter.start()
-    try:
-        time.sleep(0.5)
-        assert not health.exists()  # no frames yet: not alive
-        reporter.tick()
-        assert wait_for(health.exists)
-        time.sleep(0.2)
-        first = health.stat().st_mtime
-        time.sleep(0.3)
-        assert health.stat().st_mtime == first  # no new frames: the file stops moving
-    finally:
-        reporter.stop()

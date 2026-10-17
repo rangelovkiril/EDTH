@@ -11,7 +11,8 @@ import pytest
 from src.config import Config
 from src.detector import load_detector
 from src.motion import MotionDetector
-from src.publisher import DryRunPublisher, detection_payload
+from src.payloads import detection_payload
+from src.publisher import DryRunPublisher
 
 
 def test_load_detector_by_short_and_full_name():

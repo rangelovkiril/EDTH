@@ -8,7 +8,8 @@ from .camera import open_camera
 from .config import Config
 from .detector import load_detector
 from .geometry import CameraGeometry
-from .publisher import DryRunPublisher, Publisher, detection_payload
+from .payloads import detection_payload
+from .publisher import DryRunPublisher, Publisher
 from .status import StatusReporter
 
 log = logging.getLogger("edth.node")

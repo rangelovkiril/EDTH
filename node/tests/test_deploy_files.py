@@ -15,7 +15,8 @@ def test_quadlet_healthcheck_watches_the_file_the_node_touches():
     assert re.search(r"^HealthCmd=.*" + re.escape(default), quadlet, re.M)
     assert "Notify=healthy" in quadlet and "HealthOnFailure=kill" in quadlet
     assert "Restart=always" in quadlet and "WantedBy=multi-user.target" in quadlet
-    assert re.search(r"^Image=ghcr\.io/\S+:\S+$", quadlet, re.M)  # the line CI rewrites
+    assert re.search(r"^Image=ghcr\.io/\S+:latest$", quadlet, re.M)  # what auto-update follows
+    assert "AutoUpdate=registry" in quadlet
     assert "EnvironmentFile=/etc/edth/node.env" in quadlet
 
 
