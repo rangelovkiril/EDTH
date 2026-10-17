@@ -1,0 +1,71 @@
+import os
+import re
+from dataclasses import dataclass
+
+NODE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
+@dataclass(frozen=True)
+class Config:
+    node_id: str
+    mqtt_host: str
+    mqtt_port: int = 8883
+    mqtt_tls: bool = True
+    mqtt_username: str | None = None
+    mqtt_password: str | None = None
+    mqtt_ca_file: str | None = None
+    camera_device: str = "0"
+    camera_width: int = 640
+    camera_height: int = 480
+    camera_hfov_deg: float = 70.0
+    camera_fx: float | None = None
+    camera_fy: float | None = None
+    camera_cx: float | None = None
+    camera_cy: float | None = None
+    camera_dist: tuple[float, ...] = ()
+    heading_deg: float = 0.0
+    pitch_deg: float = 0.0
+    roll_deg: float = 0.0
+    ntp_server: str = "pool.ntp.org"
+
+    @classmethod
+    def from_env(cls, env=None) -> "Config":
+        env = os.environ if env is None else env
+
+        def get(name, default=None):
+            value = env.get(name)
+            return default if value in (None, "") else value
+
+        def num(name, kind=float):
+            value = get(name)
+            return None if value is None else kind(value)
+
+        node_id = get("NODE_ID")
+        if node_id is None or not NODE_ID_RE.match(node_id):
+            raise ValueError("NODE_ID is required and must match [a-z0-9][a-z0-9_-]*")
+        host = get("MQTT_HOST")
+        if host is None:
+            raise ValueError("MQTT_HOST is required")
+        dist = get("CAMERA_DIST", "")
+        return cls(
+            node_id=node_id,
+            mqtt_host=host,
+            mqtt_port=int(get("MQTT_PORT", 8883)),
+            mqtt_tls=get("MQTT_TLS", "1").lower() not in ("0", "false", "no"),
+            mqtt_username=get("MQTT_USERNAME"),
+            mqtt_password=get("MQTT_PASSWORD"),
+            mqtt_ca_file=get("MQTT_CA_FILE"),
+            camera_device=get("CAMERA_DEVICE", "0"),
+            camera_width=int(get("CAMERA_WIDTH", 640)),
+            camera_height=int(get("CAMERA_HEIGHT", 480)),
+            camera_hfov_deg=float(get("CAMERA_HFOV_DEG", 70)),
+            camera_fx=num("CAMERA_FX"),
+            camera_fy=num("CAMERA_FY"),
+            camera_cx=num("CAMERA_CX"),
+            camera_cy=num("CAMERA_CY"),
+            camera_dist=tuple(float(x) for x in dist.split(",") if x.strip()),
+            heading_deg=float(get("NODE_HEADING_DEG", 0)),
+            pitch_deg=float(get("NODE_PITCH_DEG", 0)),
+            roll_deg=float(get("NODE_ROLL_DEG", 0)),
+            ntp_server=get("NTP_SERVER", "pool.ntp.org"),
+        )
