@@ -1,4 +1,5 @@
-tests
-.venv
-__pycache__
-*.egg-info
+*
+!pyproject.toml
+!uv.lock
+!src
+**/__pycache__

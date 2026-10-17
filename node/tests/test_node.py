@@ -2,20 +2,21 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
 import pytest
 
-from edth_node.config import Config
-from edth_node.detector import load_detector
-from edth_node.motion import MotionDetector
-from edth_node.publisher import DryRunPublisher, detection_payload
+from src.config import Config
+from src.detector import load_detector
+from src.motion import MotionDetector
+from src.publisher import DryRunPublisher, detection_payload
 
 
 def test_load_detector_by_short_and_full_name():
     assert isinstance(load_detector("motion:MotionDetector"), MotionDetector)
-    assert isinstance(load_detector("edth_node.motion:MotionDetector"), MotionDetector)
+    assert isinstance(load_detector("src.motion:MotionDetector"), MotionDetector)
     for bad in ("motion", "nope:X", "motion:Nope"):
         with pytest.raises((ValueError, ImportError, AttributeError)):
             load_detector(bad)
@@ -55,7 +56,12 @@ def test_node_runs_end_to_end_on_a_video_file(tmp_path, validate):
         "NTP_SERVER": "127.0.0.1",
     }
     out = subprocess.run(
-        [sys.executable, "-m", "edth_node"], env=env, capture_output=True, text=True, timeout=60
+        [sys.executable, "-m", "src"],
+        env=env,
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=60,
     ).stdout.splitlines()
     detections = [line.split(" ", 1) for line in out if line.startswith("nodes/rpi-1/detections")]
     assert detections, out

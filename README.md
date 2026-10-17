@@ -10,7 +10,7 @@ Try it without a camera or a broker:
 cd node
 uv sync
 uv run pytest
-NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=/path/to/video.mp4 uv run python -m edth_node
+NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=/path/to/video.mp4 uv run python -m src
 ```
 
 Start with [`AGENTS.md`](AGENTS.md); detector authors continue in [`node/AGENTS.md`](node/AGENTS.md).

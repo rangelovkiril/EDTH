@@ -2,8 +2,8 @@ import math
 
 import pytest
 
-from edth_node.config import Config
-from edth_node.geometry import CameraGeometry
+from src.config import Config
+from src.geometry import CameraGeometry
 
 W, H, HFOV = 640, 480, 70.0
 

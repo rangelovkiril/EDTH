@@ -10,7 +10,7 @@ sensing only. Contract: [`../docs/contract.md`](../docs/contract.md).
 cd node
 uv sync
 uv run pytest                                   # should be green before you start
-NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m edth_node
+NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m src
 ```
 
 `DRY_RUN=1` prints `topic payload` lines to stdout instead of publishing (logs go to stderr).
@@ -21,11 +21,11 @@ see every detection.
 
 | File | Who edits | What it does |
 |------|-----------|--------------|
-| `edth_node/detector.py` | detector authors (rarely) | `Detection` and the `Detector` protocol |
-| `edth_node/motion.py` | detector authors | baseline motion detector; copy it as a starting point |
-| `edth_node/<yours>.py` | detector authors | **add your detector here, as a new file** |
-| `edth_node/camera.py` | camera authors | frame source (V4L2 or file) |
-| `edth_node/config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform owner | env config, MQTT, heartbeat, pixel → az/el, main loop |
+| `src/detector.py` | detector authors (rarely) | `Detection` and the `Detector` protocol |
+| `src/motion.py` | detector authors | baseline motion detector; copy it as a starting point |
+| `src/<yours>.py` | detector authors | **add your detector here, as a new file** |
+| `src/camera.py` | camera authors | frame source (V4L2 or file) |
+| `src/config.py`, `publisher.py`, `status.py`, `geometry.py`, `__main__.py` | platform owner | env config, MQTT, heartbeat, pixel → az/el, main loop |
 | `tests/` | everyone, for their own code | all published payloads are checked against `../docs/*.schema.json` |
 
 If you need a change in a platform file, ask rather than editing: it keeps parallel work from
@@ -38,15 +38,14 @@ frame (`numpy` array, `uint8`, shape `H×W×3`) and returns the **pixel** centre
 You never deal with angles, MQTT or time.
 
 ```python
-# edth_node/yolo.py
+# src/yolo.py
 import numpy as np
 
 from .detector import Detection
 
 
 class YoloDetector:
-    def __init__(self):
-        ...  # load the model once
+    def __init__(self): ...  # load the model once
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         # u = x pixel (right), v = y pixel (down), conf in [0, 1]
@@ -56,10 +55,10 @@ class YoloDetector:
 Run it by name, without touching `__main__.py`:
 
 ```sh
-DETECTOR=yolo:YoloDetector NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m edth_node
+DETECTOR=yolo:YoloDetector NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m src
 ```
 
-`DETECTOR` is `module:Class`; a module name without a dot is looked up inside `edth_node`.
+`DETECTOR` is `module:Class`; a module name without a dot is looked up inside `src`.
 
 Things to know:
 

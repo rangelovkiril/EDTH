@@ -21,13 +21,13 @@ class Detector(Protocol):
 
 
 def load_detector(spec: str) -> Detector:
-    """Instantiate `module:Class`; a bare module name is looked up inside edth_node.
+    """Instantiate `module:Class`; a bare module name is looked up inside src.
 
-    `motion:MotionDetector` -> edth_node.motion.MotionDetector (no constructor arguments).
+    `motion:MotionDetector` -> src.motion.MotionDetector (no constructor arguments).
     """
     module_name, _, class_name = spec.partition(":")
     if not class_name:
         raise ValueError(f"DETECTOR must look like module:Class, got {spec!r}")
     if "." not in module_name:
-        module_name = f"edth_node.{module_name}"
+        module_name = f"src.{module_name}"
     return getattr(importlib.import_module(module_name), class_name)()

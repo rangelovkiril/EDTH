@@ -1,6 +1,6 @@
 import numpy as np
 
-from edth_node.motion import MotionDetector
+from src.motion import MotionDetector
 
 
 def frame_with_dot(x, y):

@@ -1,6 +1,6 @@
 import pytest
 
-from edth_node.config import Config
+from src.config import Config
 
 
 def test_minimal_env():

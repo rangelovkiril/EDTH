@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from edth_node.status import _NTP_EPOCH_OFFSET, ntp_offset_ms, read_temp_c
+from src.status import _NTP_EPOCH_OFFSET, ntp_offset_ms, read_temp_c
 
 
 def fake_ntp_server(skew_s):

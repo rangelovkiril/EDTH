@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import pytest
 from jsonschema import ValidationError
 
-from edth_node.config import Config
-from edth_node.publisher import Publisher, detection_payload, status_payload
+from src.config import Config
+from src.publisher import Publisher, detection_payload, status_payload
 
 
 def test_detection_payload_matches_schema(validate):
