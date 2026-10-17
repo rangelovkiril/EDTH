@@ -22,9 +22,10 @@ class MotionDetector:
     No aircraft classifier: anything small and persistently moving is reported.
     """
 
-    def __init__(self, threshold=20, min_area=5):
+    def __init__(self, threshold=20, min_area=5, max_blobs=30):
         self.threshold = threshold
         self.min_area = min_area
+        self.max_blobs = max_blobs
         self.background = cv2.createBackgroundSubtractorMOG2(
             history=200, varThreshold=threshold, detectShadows=False
         )
@@ -48,6 +49,8 @@ class MotionDetector:
                     and max(w, h) < max(mask.shape) * 0.25
                 ):
                     boxes.append((tuple(map(float, centers[i])), (int(x), int(y), int(w), int(h))))
+        if len(boxes) > self.max_blobs:
+            boxes = []  # hundreds of blobs: a moving camera or noise, and tracking them stalls us
         self._update_tracks(boxes)
         confirmed = [t for t in self.tracks if t.hits >= 3 and t.missed == 0]
         # Heuristic: confidence grows with persistence, never reaches certainty.
