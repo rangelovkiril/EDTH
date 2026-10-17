@@ -77,7 +77,7 @@ Written down, not decided. Confirm before building on them.
    intrinsics and the configured mount heading/pitch/roll.
 3. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`).
 4. **Tailscale** on the Pis (CI reaches them through it).
-5. **Repo visibility:** public enables the free arm64 runner; private falls back to QEMU.
+5. ~~Repo visibility~~ — the repo is public, so the native arm64 runner is free.
 6. **Camera:** USB (V4L2, default) or CSI (needs more device passthrough).
 7. **EMQX version and licence** (multi-node clusters need a key since 5.9); whether
    Exoscale DBaaS Postgres is available in `bg-sof-1`.
