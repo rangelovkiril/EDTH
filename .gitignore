@@ -8,27 +8,13 @@ __pycache__/
 dist/
 build/
 
-# ESP-IDF
-firmware/**/build/
-firmware/**/managed_components/
-firmware/**/sdkconfig
-firmware/**/sdkconfig.old
-firmware/**/sdkconfig.secrets
-firmware/**/*.keys
-
 # Secrets
 *.secret
 *.secrets
 secrets.*
 !*.example
-
-# Data
-recordings/*
-!recordings/.gitkeep
-*.jsonl
-
-# Site-specific config (commit the example)
-config/site.yaml
+infra/rpi/*.env
+.env
 
 # Editors / OS
 .vscode/

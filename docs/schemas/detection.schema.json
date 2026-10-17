@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/schemas/detection.schema.json",
+  "title": "Detection",
+  "description": "A bearing to one airborne object, published on nodes/{id}/detections.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node", "t", "az", "el", "conf", "frame"],
+  "properties": {
+    "node": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+    "t": {"type": "number", "description": "Unix seconds at frame capture"},
+    "az": {"type": "number", "minimum": 0, "exclusiveMaximum": 360},
+    "el": {"type": "number", "minimum": -90, "maximum": 90},
+    "conf": {"type": "number", "minimum": 0, "maximum": 1},
+    "frame": {"type": "integer", "minimum": 0}
+  }
+}

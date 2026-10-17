@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/schemas/status.schema.json",
+  "title": "Status",
+  "description": "Node heartbeat, published on nodes/{id}/status about once per second.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node", "t", "fps", "temp_c", "clock_offset_ms"],
+  "properties": {
+    "node": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+    "t": {"type": "number", "description": "Unix seconds when sent"},
+    "fps": {"type": "number", "minimum": 0},
+    "temp_c": {"type": ["number", "null"]},
+    "clock_offset_ms": {"type": ["number", "null"], "description": "Local clock minus NTP"}
+  }
+}
