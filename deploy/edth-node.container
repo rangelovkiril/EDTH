@@ -1,7 +1,5 @@
 # Rootful Podman quadlet for the detection node: /etc/containers/systemd/edth-node.container
-# The deploy job of .github/workflows/node.yml installs this file and rewrites Image= to the exact
-# tag it just pulled, so the file on the Pi always names the version that runs. Machine-specific
-# settings live in /etc/edth/node.env (written by bootstrap.sh, never in git).
+# Installed by bootstrap.sh. Machine-specific settings live in /etc/edth/node.env, never in git.
 [Unit]
 Description=EDTH detection node
 Wants=network-online.target
@@ -12,7 +10,11 @@ StartLimitIntervalSec=0
 [Container]
 Image=ghcr.io/rangelovkiril/edth-node:latest
 ContainerName=edth-node
-# The deploy job pulls the image first; after a reboot it is already local, so no network is needed.
+# New images arrive by themselves: podman-auto-update.timer (every minute, see bootstrap.sh) checks
+# the registry, pulls a changed :latest and restarts this unit, and rolls back to the previous image
+# if the new one does not become healthy. Nothing has to reach the Pi from outside.
+AutoUpdate=registry
+# After a reboot the image is already local, so no network is needed to start.
 Pull=missing
 EnvironmentFile=/etc/edth/node.env
 Network=host
@@ -24,8 +26,8 @@ LogDriver=journald
 
 # Healthy = frames are flowing: the node touches /tmp/edth-alive each second it processed a frame.
 # A hung camera stops the file moving, podman kills the container, and Restart=always starts it
-# again. Notify=healthy makes `systemctl start/restart` wait for the first good check, so a deploy
-# of a broken build fails loudly instead of "succeeding".
+# again. Notify=healthy makes systemd (and auto-update) wait for the first good check, which is
+# what lets auto-update tell a working new image from a broken one.
 HealthCmd=python -c 'import os,sys,time; sys.exit(time.time()-os.stat("/tmp/edth-alive").st_mtime>30)'
 HealthInterval=15s
 HealthTimeout=10s
@@ -37,7 +39,8 @@ Notify=healthy
 [Service]
 Restart=always
 RestartSec=5
-TimeoutStartSec=180
+# The first start also pulls the image over whatever network there is.
+TimeoutStartSec=900
 TimeoutStopSec=30
 
 [Install]

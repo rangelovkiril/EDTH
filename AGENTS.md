@@ -21,8 +21,8 @@ Do not add infrastructure here.
 |------|------|
 | `node/` | the node program and its tests; start with [`node/AGENTS.md`](node/AGENTS.md) |
 | `docs/contract.md`, `docs/*.schema.json` | the message contract (normative) |
-| `.github/workflows/node.yml` | test, build the arm64 image, deploy it to the Pis on push to `main` |
-| `deploy/` | one-time Pi bootstrap and the quadlet; see `deploy/README.md` |
+| `.github/workflows/node.yml` | test, then build and push the arm64 image on push to `main` |
+| `deploy/` | one-time Pi bootstrap and the quadlet; the Pi then updates itself |
 
 ## Contract in one table
 
@@ -64,7 +64,7 @@ Written down, not decided.
 4. **NTP egress** (UDP 123) from the Pis; without it `clock_offset_ms` is omitted.
 5. **Online/offline signal:** retained LWT on `status`, and a schema `version` field.
 6. **Project name:** repo history says "Triangulum", the brief says "M.I.G.E.T.".
-7. **Pi deployment** is GitHub Actions through a self-hosted runner on each Pi (`deploy/`). The runner
-   is effectively root on the Pi and the repository is public: set the fork-PR approval option.
+7. **Pi deployment** is pull-based (`podman auto-update` on the Pi), because the Pi is on a private
+   network. The `RPI*_SSH_KEY` secrets are unused; SSH-from-Actions needs a tunnel or VPN.
 8. **Untested on real hardware:** the container image on a Pi (the camera code itself was run on one),
    and surviving a reboot.

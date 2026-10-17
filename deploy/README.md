@@ -1,83 +1,67 @@
 # Deploying to a Raspberry Pi
 
-Two things only, and nothing in between:
-
-| Who | When | What |
-|-----|------|------|
-| **You**, `bootstrap.sh` | once per Pi | installs podman, writes this Pi's settings, installs the GitHub runner |
-| **GitHub Actions**, `.github/workflows/node.yml` | every push to `main` | tests, builds the arm64 image, pulls it on the Pi, installs the quadlet, restarts, verifies |
-
-There are no deploy scripts to run by hand. `git push` is the deploy.
+`git push` is the deploy. The Pi is on a private network that GitHub cannot reach, so the Pi pulls:
 
 ```
-git push ─→ test ─→ build arm64 image ─→ GHCR ─→ deploy job on the Pi's own runner
-                                                   ├ podman pull ghcr.io/…/edth-node:sha-<7>
-                                                   ├ install deploy/edth-node.container with that exact tag
-                                                   ├ systemctl restart edth-node   (blocks until healthy)
-                                                   └ check the running image and EDTH_VERSION == the pushed commit
+git push ─→ GitHub Actions: test, build arm64 image, push ghcr.io/rangelovkiril/edth-node:latest
+                                                            │
+Pi: podman-auto-update.timer (every minute) ── sees a new :latest ─→ pulls it, restarts edth-node
+                                                   └ if the new container is not healthy: rolls back
 ```
 
-The Pi is behind NAT and Actions cannot reach it, so the Pi pulls the work instead: the runner
-dials out to GitHub. No inbound port, no SSH key, no VPN.
+No runner, no SSH key, no open port. Setup is one command, once per Pi.
 
 ## Bootstrap
 
-```sh
-# on your machine: a registration token, valid for one hour
-gh api -X POST repos/rangelovkiril/EDTH/actions/runners/registration-token --jq .token
+On the Pi, from a checkout of this repository:
 
-# on the Pi (the script is in this folder)
-sudo RUNNER_TOKEN=<token> NODE_ID=rpi-1 bash bootstrap.sh
-# with a broker:   sudo RUNNER_TOKEN=… NODE_ID=rpi-1 MQTT_HOST=… MQTT_USERNAME=… MQTT_PASSWORD=… bash bootstrap.sh
+```sh
+git clone https://github.com/rangelovkiril/EDTH && cd EDTH
+sudo NODE_ID=rpi-1 bash deploy/bootstrap.sh                       # camera + detector, prints, no broker
+sudo NODE_ID=rpi-1 MQTT_HOST=… MQTT_USERNAME=… MQTT_PASSWORD=… bash deploy/bootstrap.sh   # with a broker
 ```
 
-Without `MQTT_HOST` the node runs in `DRY_RUN=1`: it uses the camera and detector and writes the
-messages to its log instead of a broker. To go live later, edit `/etc/edth/node.env` and
-`sudo systemctl restart edth-node`. Re-running the bootstrap is safe; it keeps an existing env
-file unless `FORCE_ENV=1`.
+It installs podman, writes `/etc/edth/node.env` (mode 600; never in git), installs the quadlet
+`edth-node.container`, switches the auto-update timer to every minute and starts the node. The
+first start pulls the image, which takes a few minutes over Wi-Fi. Re-run it after `git pull` to apply a
+changed quadlet; an existing env file is kept unless `FORCE_ENV=1`.
 
-What it sets up:
+Without `MQTT_HOST` the node runs with `DRY_RUN=1`. To go live later, edit `/etc/edth/node.env` and
+`sudo systemctl restart edth-node`.
 
-- `podman` (rootful; the quadlet generator is part of it) and a persistent journal.
-- `/etc/edth/node.env`, mode 600: node id, camera settings, mount pose, broker. Never in git.
-- user `ghrunner` with sudo for exactly `podman`, `systemctl`, `install` and `journalctl`, and the
-  Actions runner as a systemd service that restarts itself and starts at boot, labelled `rpi-1`.
+If the image package is private, either make it public (GitHub → Packages → `edth-node` → settings) or
+pass `GHCR_USER` and `GHCR_TOKEN` (a token with `read:packages`) to the bootstrap.
 
-## What runs
+## What the quadlet gives you
 
-`edth-node.container` is a rootful Podman quadlet in `/etc/containers/systemd/`:
-
-- **Survives reboots.** The unit is wanted by `multi-user.target` and starts after the network is
-  online; the image is already on the Pi, so no network is needed to start. `Restart=always` with no
-  start limit.
-- **Healthy means frames are flowing.** The node touches `/tmp/edth-alive` while it processes
-  frames. If the camera hangs, the healthcheck fails, Podman kills the container, systemd starts it.
-  `Notify=healthy` makes the deploy's `systemctl restart` wait for that first good check, so a
-  broken build fails the Actions run instead of silently "deploying".
-- **Camera.** `--privileged` and the host network: libcamera uses `/dev/media*`, `/dev/v4l-subdev*`
-  and `/dev/dma_heap/*`, which renumber between boots. The image carries libcamera and picamera2 from
+- **Survives reboots.** Wanted by `multi-user.target`, starts once the network is online, and the
+  image is already local so no network is needed. `Restart=always`, no start limit.
+- **Healthy means frames are flowing.** The node touches `/tmp/edth-alive` while it processes frames. A
+  hung camera fails the healthcheck, Podman kills the container, systemd restarts it. This is also how
+  auto-update tells a working new image from a broken one.
+- **Camera.** `--privileged` and the host network: libcamera uses `/dev/media*`, `/dev/v4l-subdev*` and
+  `/dev/dma_heap/*`, which renumber between boots. The image carries libcamera and picamera2 from
   Raspberry Pi's apt repo, the same one the host uses.
 
 ## Day to day
 
 ```sh
-journalctl -u edth-node -f          # node logs, including event=start version=<commit>
+journalctl -u edth-node -f                  # node logs; event=start shows version=<commit>
 systemctl status edth-node
+journalctl -u podman-auto-update -f         # update checks
+sudo systemctl start podman-auto-update     # don't wait for the minute
 sudo podman ps
-journalctl -u 'actions.runner.*' -f # runner logs
 ```
 
-- **Roll back:** re-run the `node` workflow for an older commit from the Actions tab (it deploys
-  that commit's image).
-- **Change a setting:** edit `/etc/edth/node.env`, then `sudo systemctl restart edth-node`.
-- **Another Pi:** run the bootstrap there with its own `NODE_ID`, and add the id to `matrix.pi` in the
-  workflow.
+- **What is running:** `sudo podman inspect edth-node --format '{{.Config.Labels}}'` includes the
+  commit (`org.opencontainers.image.revision`).
+- **Roll back:** revert the commit and push; the Pi follows. To stop updates while you test by hand:
+  `sudo systemctl disable --now podman-auto-update.timer`.
+- **Another Pi:** clone and run the bootstrap there with its own `NODE_ID`.
 
-## Security notes
+## Why not deploy over SSH from Actions?
 
-- The runner executes whatever the workflow says, as a user that can run `podman` as root, so it is
-  effectively root on the Pi. Only pushes to `main` can reach the deploy job. In the repository
-  settings (Actions → General) set *Fork pull request workflows* to require approval for all
-  outside contributors, because this repository is public.
-- Make the `edth-node` package public or leave it private: the deploy job logs in to GHCR with the
-  workflow's own token either way.
+GitHub-hosted runners come from the public internet, and a Pi on a hotspot or LAN has no address
+they can reach. The options are a VPN/tunnel on every Pi or a self-hosted runner, and both add a
+moving part (and a root-equivalent agent) for no benefit here. The pull model needs nothing but outbound
+internet. The deploy keys stored as repository secrets (`RPI1_SSH_KEY`, `RPI2_SSH_KEY`) are not used.
