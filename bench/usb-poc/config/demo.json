@@ -1,6 +1,0 @@
-{
-  "mode": "demo",
-  "voxel_bounds": [[-12, 12], [-8, 8], [5, 65]],
-  "voxel_resolution": 40,
-  "max_pair_skew_s": 0.2
-}
