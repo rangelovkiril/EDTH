@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
  && printf 'Types: deb\nURIs: http://archive.raspberrypi.com/debian/\nSuites: trixie\nComponents: main\nSigned-By: /usr/share/keyrings/raspberrypi-archive-keyring.pgp\n' \
       > /etc/apt/sources.list.d/raspi.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-numpy python3-picamera2 libcamera-ipa
+ && apt-get install -y --no-install-recommends ca-certificates python3 python3-numpy python3-picamera2 libcamera-ipa
 
 # Build stage: the locked pip dependencies go into a venv that also sees the apt packages above.
 # numpy comes from apt (picamera2 depends on it), so there is exactly one numpy in the image.
