@@ -19,6 +19,7 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `STREAM_PORT` | unset (off) | serve a live view of the camera on this port (see below) |
 | `STREAM_ROTATE` | `0` | turn the live view by 0, 90, 180 or 270 degrees |
 | `VIDEO_PUSH_URL` | unset (off) | demo only: push small frames with detections drawn to the video relay, e.g. `https://video.rangelov.dev/push` (frames go to `<url>/<NODE_ID>`, authenticated with `MQTT_USERNAME`/`MQTT_PASSWORD`); Grafana shows them |
+| `VIDEO_TOKEN` | unset | push with this token instead of the MQTT credentials; the relay holds only its SHA-256 (EDTH-infra `apps/miget`) |
 | `VIDEO_FPS`, `VIDEO_WIDTH` | `4`, `640` | frames per second and width pushed; 4 fps at 640 px is about 100 kB/s |
 | `HEALTH_FILE` | `/tmp/edth-alive` | touched while frames flow; the container healthcheck watches it |
 | `CAMERA_HFOV_DEG` | from the camera | horizontal field of view when there is no calibration. Raspberry Pi cameras report it themselves (v1, v2, 3, 3 Wide, allowing for the sensor mode's crop); set it for an HQ camera, a USB camera (else 70), or to override |

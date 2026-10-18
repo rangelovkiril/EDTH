@@ -1,9 +1,10 @@
 """Opt-in demo video: push small JPEGs (detections drawn on) to the video relay.
 
 The node is behind NAT (a phone hotspot), so it sends rather than serves: one long chunked HTTPS
-POST of multipart JPEGs to `{VIDEO_PUSH_URL}/{node}`, authenticated with the node's MQTT username
-and password (the relay checks them against the broker). A few frames per second at 640 px wide is
-about 100 kB/s. This is a demo aid and not part of the message contract; nothing goes to the broker.
+POST of multipart JPEGs to `{VIDEO_PUSH_URL}/{node}`, authenticated with `VIDEO_TOKEN` (the relay
+keeps only its SHA-256) or else the node's MQTT username and password (checked against the broker).
+A few frames per second at 640 px wide is about 100 kB/s. This is a demo aid and not part
+of the message contract; nothing goes to the broker.
 """
 
 import base64
@@ -32,6 +33,7 @@ class VideoPusher:
         fps: float = 4.0,
         width: int = 640,
         quality: int = 60,
+        token: str | None = None,
     ):
         parts = urlsplit(url.rstrip("/") + "/" + node)
         if parts.scheme not in ("http", "https"):
@@ -40,7 +42,9 @@ class VideoPusher:
             streamer, parts, fps, width, quality,
         )  # fmt: skip
         self._auth = None
-        if username:
+        if token:
+            self._auth = "Bearer " + token
+        elif username:
             token = base64.b64encode(f"{username}:{password or ''}".encode()).decode()
             self._auth = "Basic " + token
         self._stop = threading.Event()

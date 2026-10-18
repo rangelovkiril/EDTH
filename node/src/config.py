@@ -42,6 +42,7 @@ class Config:
     video_push_url: str | None = None
     video_fps: float = 4.0
     video_width: int = 640
+    video_token: str | None = None
 
     @classmethod
     def from_env(cls, env=None) -> "Config":
@@ -109,4 +110,5 @@ class Config:
             video_push_url=get("VIDEO_PUSH_URL"),
             video_fps=float(get("VIDEO_FPS", 4.0)),
             video_width=int(get("VIDEO_WIDTH", 640)),
+            video_token=get("VIDEO_TOKEN"),
         )

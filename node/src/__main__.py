@@ -73,7 +73,8 @@ def main() -> int:
             cfg.mqtt_password,
             cfg.video_fps,
             cfg.video_width,
-        )  # fmt: skip
+            token=cfg.video_token,
+        )
         if cfg.video_push_url
         else None
     )
