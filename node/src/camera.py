@@ -6,8 +6,10 @@
 
 Every source has `read()` (BGR uint8 frame or None), `close()` and `captured_at`: the Unix time of
 the last frame when the source knows it, else None (the caller then uses the time of the read).
+A source may also have `hfov_deg`, its horizontal field of view once known (see PiCamera).
 """
 
+import math
 import time
 
 import numpy as np
@@ -39,8 +41,31 @@ class Camera:
         self.cap.release()
 
 
+# Horizontal field of view of the whole sensor array, degrees, from the Raspberry Pi datasheets.
+# Keyed by libcamera's sensor model. The HQ camera (imx477) is left out: its lens is swappable.
+SENSOR_HFOV_DEG = {
+    "ov5647": 53.5,  # Camera Module v1
+    "imx219": 62.2,  # Camera Module v2
+    "imx708": 66.0,  # Camera Module 3
+    "imx708_wide": 102.0,  # Camera Module 3 Wide
+    "imx708_noir": 66.0,
+    "imx708_wide_noir": 102.0,
+}
+
+
+def scaled_hfov_deg(full_hfov_deg: float, array_width: int, crop_width: int) -> float:
+    """HFOV of a frame made from `crop_width` of the sensor's `array_width` columns."""
+    ratio = min(crop_width / array_width, 1.0)
+    return math.degrees(2 * math.atan(ratio * math.tan(math.radians(full_hfov_deg) / 2)))
+
+
 class PiCamera:
-    """Raspberry Pi CSI camera. Needs picamera2 + libcamera (apt: python3-picamera2)."""
+    """Raspberry Pi CSI camera. Needs picamera2 + libcamera (apt: python3-picamera2).
+
+    `model` is the sensor name. `hfov_deg` is the horizontal field of view of the frames being
+    delivered (None for a sensor we have no datasheet value for): the sensor mode can crop, so it is
+    worked out from the ISP's ScalerCrop of the first frame, not just from the model.
+    """
 
     def __init__(self, width: int = 1280, height: int = 720, fps: float = 30.0):
         try:
@@ -52,7 +77,12 @@ class PiCamera:
                 "they are part of the container image"
             ) from e
         self.captured_at: float | None = None
+        self.hfov_deg: float | None = None
         self.cam = Picamera2()
+        props = self.cam.camera_properties
+        self.model: str = props.get("Model", "unknown")
+        self._full_hfov = SENSOR_HFOV_DEG.get(self.model)
+        self._array_width = (props.get("PixelArraySize") or (0, 0))[0]
         # "RGB888" is laid out B, G, R in memory, which is OpenCV's order.
         config = self.cam.create_video_configuration(
             main={"size": (width, height), "format": "RGB888"},
@@ -69,10 +99,13 @@ class PiCamera:
         request = self.cam.capture_request()
         try:
             frame = np.ascontiguousarray(request.make_array("main"))
-            stamp = request.get_metadata().get("SensorTimestamp")
+            metadata = request.get_metadata()
         finally:
             request.release()
-        self.captured_at = _sensor_time_to_unix(stamp)
+        self.captured_at = _sensor_time_to_unix(metadata.get("SensorTimestamp"))
+        crop = metadata.get("ScalerCrop")
+        if self.hfov_deg is None and crop and self._full_hfov and self._array_width:
+            self.hfov_deg = scaled_hfov_deg(self._full_hfov, self._array_width, crop[2])
         return frame
 
     def close(self) -> None:

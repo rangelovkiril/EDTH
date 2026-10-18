@@ -24,6 +24,6 @@ def test_every_key_bootstrap_writes_is_read_by_the_node():
     script = (DEPLOY / "bootstrap.sh").read_text()
     script = script.split("Node configuration")[1].split("Runner user")[0]
     written = set(re.findall(r'echo "([A-Z][A-Z0-9_]*)=', script))
-    assert {"NODE_ID", "CAMERA_DEVICE", "CAMERA_HFOV_DEG", "MQTT_HOST", "DRY_RUN"} <= written
+    assert {"NODE_ID", "CAMERA_DEVICE", "CAMERA_WIDTH", "MQTT_HOST", "DRY_RUN"} <= written
     unknown = {key for key in written if f'"{key}"' not in CONFIG_SOURCE}
     assert not unknown, f"bootstrap.sh writes settings the node ignores: {unknown}"

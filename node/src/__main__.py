@@ -7,7 +7,7 @@ import time
 from .camera import open_camera
 from .config import Config
 from .detector import load_detector
-from .geometry import CameraGeometry
+from .geometry import DEFAULT_HFOV_DEG, CameraGeometry
 from .payloads import detection_payload
 from .publisher import DryRunPublisher, Publisher
 from .status import StatusReporter
@@ -61,7 +61,17 @@ def main() -> int:
             t = camera.captured_at or time.time()  # sensor time if known, else the read time
             if geometry is None:
                 height, width = frame.shape[:2]
-                geometry = CameraGeometry.from_config(cfg, width, height)
+                sensor_hfov = getattr(camera, "hfov_deg", None)
+                geometry = CameraGeometry.from_config(cfg, width, height, sensor_hfov)
+                log.info(
+                    "event=camera node=%s sensor=%s size=%dx%d hfov_deg=%s source=%s",
+                    cfg.node_id,
+                    getattr(camera, "model", cfg.camera_device),
+                    width,
+                    height,
+                    cfg.camera_hfov_deg or sensor_hfov or DEFAULT_HFOV_DEG,
+                    "config" if cfg.camera_hfov_deg else "sensor" if sensor_hfov else "default",
+                )
             frame_no += 1
             status.tick()
             marks = []

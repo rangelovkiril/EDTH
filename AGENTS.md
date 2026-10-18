@@ -59,8 +59,10 @@ Written down, not decided.
 1. **`az`/`el` frame and node pose.** Assumed: computed on the node from pixel, intrinsics and
    the configured mount heading/pitch/roll. Nobody downstream knows the pose.
 2. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`).
-3. **Camera:** the first Pi has a Camera Module 3 Wide (imx708_wide) on CSI; USB cameras work through V4L2.
-   The 102° HFOV is the datasheet value, not a calibration.
+3. **Cameras:** `miget5` (Pi 5) has a Camera Module 3 Wide (imx708_wide), `miget3` (Pi 3B) a Camera
+   Module v2 (imx219), both on CSI; USB cameras work through V4L2. The node takes the HFOV (102° / 62.2°)
+   from the sensor's datasheet value and the crop of the mode in use, not from a calibration. Untested
+   on the Pi 3 yet, including whether it keeps up at 1280x720.
 4. **NTP egress** (UDP 123) from the Pis; without it `clock_offset_ms` is omitted.
 5. **Online/offline signal:** retained LWT on `status`, and a schema `version` field.
 6. **Project name:** repo history says "Triangulum", the brief says "M.I.G.E.T.".

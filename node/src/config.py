@@ -18,7 +18,7 @@ class Config:
     camera_width: int = 640
     camera_height: int = 480
     camera_fps: float = 30.0
-    camera_hfov_deg: float = 70.0
+    camera_hfov_deg: float | None = None
     camera_fx: float | None = None
     camera_fy: float | None = None
     camera_cx: float | None = None
@@ -69,7 +69,7 @@ class Config:
             camera_width=int(get("CAMERA_WIDTH", 640)),
             camera_height=int(get("CAMERA_HEIGHT", 480)),
             camera_fps=float(get("CAMERA_FPS", 30)),
-            camera_hfov_deg=float(get("CAMERA_HFOV_DEG", 70)),
+            camera_hfov_deg=num("CAMERA_HFOV_DEG"),
             camera_fx=num("CAMERA_FX"),
             camera_fy=num("CAMERA_FY"),
             camera_cx=num("CAMERA_CX"),

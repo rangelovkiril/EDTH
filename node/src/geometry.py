@@ -11,6 +11,8 @@ import math
 import cv2
 import numpy as np
 
+DEFAULT_HFOV_DEG = 70.0  # a guess, for cameras that report nothing and have no CAMERA_HFOV_DEG
+
 # Level camera facing north: x_cam -> east, y_cam -> down, z_cam -> north.
 _CAM_TO_ENU = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], float)
 
@@ -43,13 +45,20 @@ class CameraGeometry:
         )
 
     @classmethod
-    def from_config(cls, cfg, width: int, height: int) -> "CameraGeometry":
-        """Use calibrated intrinsics when given, else a pinhole model from the HFOV."""
+    def from_config(
+        cls, cfg, width: int, height: int, sensor_hfov_deg: float | None = None
+    ) -> "CameraGeometry":
+        """Calibrated intrinsics if given, else a pinhole model from the HFOV.
+
+        HFOV comes from CAMERA_HFOV_DEG, else from the camera itself (`sensor_hfov_deg`, known for
+        Raspberry Pi cameras), else DEFAULT_HFOV_DEG.
+        """
         if cfg.camera_fx is not None:
             fx = cfg.camera_fx
             fy = cfg.camera_fy or fx
         else:
-            fx = fy = (width / 2) / math.tan(math.radians(cfg.camera_hfov_deg) / 2)
+            hfov = cfg.camera_hfov_deg or sensor_hfov_deg or DEFAULT_HFOV_DEG
+            fx = fy = (width / 2) / math.tan(math.radians(hfov) / 2)
         cx = width / 2 if cfg.camera_cx is None else cfg.camera_cx
         cy = height / 2 if cfg.camera_cy is None else cfg.camera_cy
         K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]

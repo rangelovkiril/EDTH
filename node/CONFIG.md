@@ -19,7 +19,7 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `STREAM_PORT` | unset (off) | serve a live view of the camera on this port (see below) |
 | `STREAM_ROTATE` | `0` | turn the live view by 0, 90, 180 or 270 degrees |
 | `HEALTH_FILE` | `/tmp/edth-alive` | touched while frames flow; the container healthcheck watches it |
-| `CAMERA_HFOV_DEG` | `70` | horizontal field of view when there is no calibration |
+| `CAMERA_HFOV_DEG` | from the camera | horizontal field of view when there is no calibration. Raspberry Pi cameras report it themselves (v1, v2, 3, 3 Wide, allowing for the sensor mode's crop); set it for an HQ camera, a USB camera (else 70), or to override |
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
 | `NODE_HEADING_DEG`, `NODE_PITCH_DEG`, `NODE_ROLL_DEG` | `0` | mount pose: heading clockwise from north, pitch up, roll clockwise |

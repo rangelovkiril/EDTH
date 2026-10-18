@@ -8,7 +8,9 @@ import pytest
 from src import camera
 
 
-def install_fake_picamera2(monkeypatch):
+def install_fake_picamera2(
+    monkeypatch, model="imx708_wide", array=(4608, 2592), crop=(0, 0, 4608, 2592)
+):
     calls = {}
 
     class Request:
@@ -20,13 +22,14 @@ def install_fake_picamera2(monkeypatch):
             return np.zeros((720, 1280, 3), np.uint8)
 
         def get_metadata(self):
-            return {"SensorTimestamp": self.stamp}
+            return {"SensorTimestamp": self.stamp, "ScalerCrop": crop}
 
         def release(self):
             self.released = True
 
     class Picamera2:
         camera_controls = {"LensPosition": (0.0, 32.0, 1.0)}
+        camera_properties = {"Model": model, "PixelArraySize": array}
 
         def create_video_configuration(self, **kw):
             calls["config"] = kw
@@ -80,6 +83,32 @@ def test_open_camera_csi_configures_bgr_fixed_focus_and_stamps_sensor_time(monke
     assert 0.02 < before - cam.captured_at < 0.2
     cam.close()
     assert calls["stopped"] and calls["closed"]
+
+
+def test_hfov_comes_from_the_sensor_and_the_crop_the_isp_applies(monkeypatch):
+    install_fake_picamera2(monkeypatch)  # Camera Module 3 Wide, whole array
+    wide = camera.open_camera("csi", 1280, 720)
+    assert wide.model == "imx708_wide" and wide.hfov_deg is None  # not known before a frame
+    wide.read()
+    assert wide.hfov_deg == pytest.approx(102.0)
+
+    install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), (0, 0, 3280, 1845))  # V2, 16:9
+    v2 = camera.open_camera("csi", 1280, 720)
+    v2.read()
+    assert v2.hfov_deg == pytest.approx(62.2)  # 16:9 only trims rows
+
+    # the 640x480 sensor mode is a crop of the middle of the array
+    install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), (1000, 752, 1280, 960))
+    cropped = camera.open_camera("csi", 640, 480)
+    cropped.read()
+    assert 25 < cropped.hfov_deg < 28  # much narrower
+
+
+def test_hfov_is_unknown_for_a_sensor_without_a_datasheet_value(monkeypatch):
+    install_fake_picamera2(monkeypatch, "imx477", (4056, 3040), (0, 0, 4056, 3040))
+    hq = camera.open_camera("csi", 1280, 720)
+    hq.read()
+    assert hq.hfov_deg is None  # the lens is interchangeable: set CAMERA_HFOV_DEG
 
 
 def test_sensor_time_falls_back_when_missing_or_implausible():

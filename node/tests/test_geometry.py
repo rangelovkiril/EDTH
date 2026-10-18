@@ -3,7 +3,7 @@ import math
 import pytest
 
 from src.config import Config
-from src.geometry import CameraGeometry
+from src.geometry import DEFAULT_HFOV_DEG, CameraGeometry
 
 W, H, HFOV = 640, 480, 70.0
 
@@ -73,3 +73,14 @@ def test_calibrated_intrinsics_override_hfov():
     assert g.pixel_to_azel(300, 200) == pytest.approx((0.0, 0.0), abs=1e-9)
     az, _ = g.pixel_to_azel(300 + 800, 200)
     assert az == pytest.approx(45.0, abs=1e-6)
+
+
+def test_hfov_precedence_config_then_sensor_then_default():
+    def right_edge(cfg_hfov, sensor_hfov):
+        cfg = Config(node_id="n", mqtt_host="h", camera_hfov_deg=cfg_hfov)
+        g = CameraGeometry.from_config(cfg, W, H, sensor_hfov)
+        return g.pixel_to_azel(W, H / 2)[0] * 2
+
+    assert right_edge(90.0, 62.2) == pytest.approx(90.0, abs=1e-6)  # CAMERA_HFOV_DEG wins
+    assert right_edge(None, 62.2) == pytest.approx(62.2, abs=1e-6)  # else what the camera reports
+    assert right_edge(None, None) == pytest.approx(DEFAULT_HFOV_DEG, abs=1e-6)
