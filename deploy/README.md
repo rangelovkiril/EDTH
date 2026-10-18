@@ -13,7 +13,17 @@ No runner, no SSH key, no open port. Setup is one command, once per Pi.
 
 ## Bootstrap
 
-On the Pi, from a checkout of this repository:
+From your laptop, for any Pi that is in `~/.ssh/config` (nothing but SSH has to exist on the Pi; this
+repo holds no addresses):
+
+```sh
+deploy/pi.sh miget3 bootstrap rpi-2                                   # prints, no broker
+MQTT_HOST=… MQTT_USERNAME=… MQTT_PASSWORD=… deploy/pi.sh miget3 bootstrap rpi-2
+deploy/pi.sh miget3 logs | status | update | restart | view          # day to day
+```
+
+It asks for the Pi's sudo password. `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `CAMERA_FPS` in your shell are
+passed on (lower them on a Pi 3). Or, on the Pi itself, from a checkout of this repository:
 
 ```sh
 git clone https://github.com/rangelovkiril/EDTH && cd EDTH
@@ -57,7 +67,9 @@ sudo podman ps
   commit (`org.opencontainers.image.revision`).
 - **Roll back:** revert the commit and push; the Pi follows. To stop updates while you test by hand:
   `sudo systemctl disable --now podman-auto-update.timer`.
-- **Another Pi:** clone and run the bootstrap there with its own `NODE_ID`.
+- **Another Pi:** `deploy/pi.sh <host> bootstrap <its own NODE_ID>`. The camera model needs no setting:
+  the node reads it and logs `event=camera sensor=… hfov_deg=… source=sensor`. Only mount pose
+  (`NODE_HEADING_DEG`, …) is per Pi, in its `/etc/edth/node.env`.
 
 ## Why not deploy over SSH from Actions?
 

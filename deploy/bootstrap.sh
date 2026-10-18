@@ -14,6 +14,7 @@
 #   MQTT_TLS        default 1
 #   MQTT_USERNAME   default: NODE_ID
 #   MQTT_PASSWORD   written to /etc/edth/node.env (mode 600, root only)
+#   CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS   default 1280 x 720 at 30; lower them on a Pi 3
 #   FORCE_ENV=1     overwrite an existing /etc/edth/node.env
 #   GHCR_USER, GHCR_TOKEN   only if the image package is private: a token with read:packages
 
@@ -59,11 +60,12 @@ else
     echo "# After editing: systemctl restart edth-node"
     echo "NODE_ID=$NODE_ID"
     echo "CAMERA_DEVICE=csi"
-    echo "CAMERA_WIDTH=1280"
-    echo "CAMERA_HEIGHT=720"
-    echo "CAMERA_FPS=30"
-    echo "# Camera Module 3 Wide: 102 deg horizontal (Module 3 standard: 66). Calibrate later."
-    echo "CAMERA_HFOV_DEG=102"
+    echo "CAMERA_WIDTH=${CAMERA_WIDTH:-1280}"
+    echo "CAMERA_HEIGHT=${CAMERA_HEIGHT:-720}"
+    echo "CAMERA_FPS=${CAMERA_FPS:-30}"
+    echo "# Field of view is read from the camera (Module v1/v2/3/3 Wide). Uncomment to override,"
+    echo "# e.g. for an HQ camera or after a calibration:"
+    echo "# CAMERA_HFOV_DEG=62.2"
     echo "# Mount pose: heading clockwise from true north, pitch up, roll clockwise (degrees)."
     echo "NODE_HEADING_DEG=0"
     echo "NODE_PITCH_DEG=0"
