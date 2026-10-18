@@ -11,6 +11,14 @@
     "t": {"type": "number", "description": "Unix seconds when sent"},
     "fps": {"type": "number", "minimum": 0},
     "temp_c": {"type": "number", "description": "SoC temperature; omitted if unreadable"},
-    "clock_offset_ms": {"type": "number", "description": "Local clock minus NTP; omitted if the query failed"}
+    "clock_offset_ms": {"type": "number", "description": "Local clock minus NTP; omitted if the query failed"},
+    "lat": {"type": "number", "minimum": -90, "maximum": 90, "description": "Camera latitude, WGS84 degrees"},
+    "lon": {"type": "number", "minimum": -180, "maximum": 180, "description": "Camera longitude, WGS84 degrees"},
+    "alt_m": {"type": "number", "description": "Camera altitude in metres; the same reference for every node"}
+  },
+  "dependentRequired": {
+    "lat": ["lon", "alt_m"],
+    "lon": ["lat", "alt_m"],
+    "alt_m": ["lat", "lon"]
   }
 }

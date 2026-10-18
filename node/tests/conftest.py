@@ -11,7 +11,7 @@ SCHEMAS = Path(__file__).resolve().parents[2] / "docs"
 def validate():
     validators = {
         name: Draft202012Validator(json.loads((SCHEMAS / f"{name}.schema.json").read_text()))
-        for name in ("detection", "status")
+        for name in ("detection", "status", "fix", "ray")
     }
 
     def check(name, payload):

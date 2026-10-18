@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import signal
@@ -7,13 +8,38 @@ import time
 from .camera import open_camera
 from .config import Config
 from .detector import load_detector
+from .ecef import ray
 from .geometry import DEFAULT_HFOV_DEG, CameraGeometry
 from .payloads import detection_payload
 from .publisher import DryRunPublisher, Publisher
 from .status import StatusReporter
 from .stream import Mark, Streamer
+from .triangulate import Ray, Triangulator, ray_from_message
 
 log = logging.getLogger("edth.node")
+
+
+def start_triangulation(cfg: Config, publisher) -> Triangulator | None:
+    """Cross this node's rays with its peers' (from the broker's `rays/+`); publish the fixes."""
+    if not cfg.triangulate or cfg.position is None:
+        return None
+    tri = Triangulator(
+        cfg.node_id, cfg.tri_sync_s, cfg.tri_max_miss_m, cfg.tri_min_angle_deg, cfg.tri_max_range_m
+    )
+
+    def on_ray(topic, raw):
+        try:
+            peer = ray_from_message(json.loads(raw))
+        except (ValueError, KeyError, TypeError):
+            log.debug("event=bad_ray topic=%s", topic)
+            return
+        if peer.node != topic.rsplit("/", 1)[-1] or peer.node == cfg.node_id:
+            return
+        for fix in tri.add_peer(peer):
+            publisher.publish_fix(fix)
+
+    publisher.subscribe("rays/+", on_ray)
+    return tri
 
 
 def main() -> int:
@@ -27,25 +53,29 @@ def main() -> int:
         signal.signal(sig, lambda *_: stop.set())
 
     publisher = DryRunPublisher(cfg) if cfg.dry_run else Publisher(cfg)
-    status = StatusReporter(publisher, cfg.ntp_server, health_file=cfg.health_file)
+    status = StatusReporter(
+        publisher, cfg.ntp_server, health_file=cfg.health_file, position=cfg.position
+    )
     camera = open_camera(cfg.camera_device, cfg.camera_width, cfg.camera_height, cfg.camera_fps)
     detector = load_detector(cfg.detector)
     streamer = (
         Streamer(cfg.node_id, cfg.stream_port, cfg.stream_rotate) if cfg.stream_port else None
     )
     geometry = None
+    triangulator = start_triangulation(cfg, publisher)
     publisher.start()
     if streamer:
         streamer.start()
     status.start()
     log.info(
-        "event=start node=%s version=%s broker=%s:%s detector=%s camera=%s dry_run=%s",
+        "event=start node=%s version=%s broker=%s:%s detector=%s camera=%s position=%s dry_run=%s",
         cfg.node_id,
         os.environ.get("EDTH_VERSION", "dev"),
         cfg.mqtt_host,
         cfg.mqtt_port,
         cfg.detector,
         cfg.camera_device,
+        cfg.position,
         cfg.dry_run,
     )
 
@@ -78,9 +108,12 @@ def main() -> int:
             for d in detector.detect(frame):
                 az, el = geometry.pixel_to_azel(d.u, d.v)
                 marks.append(Mark(d.u, d.v, d.conf, az, el))
-                publisher.publish_detection(
-                    detection_payload(cfg.node_id, t, az, el, d.conf, frame_no)
-                )
+                payload = detection_payload(cfg.node_id, t, az, el, d.conf, frame_no, cfg.position)
+                publisher.publish_detection(payload)
+                if triangulator:
+                    o, k = ray(*cfg.position, payload["az"], payload["el"])
+                    for fix in triangulator.add_own(Ray(cfg.node_id, payload["t"], o, k, d.conf)):
+                        publisher.publish_fix(fix)
                 log.debug(
                     "event=detection node=%s frame=%d az=%.1f el=%.1f conf=%.2f",
                     cfg.node_id,

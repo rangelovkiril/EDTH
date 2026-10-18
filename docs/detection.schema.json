@@ -2,16 +2,74 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/rangelovkiril/EDTH/docs/detection.schema.json",
   "title": "Detection",
-  "description": "A bearing to one airborne object, published on nodes/{id}/detections.",
+  "description": "A bearing to one airborne object, published on nodes/{id}/detections. With the camera position the broker turns it into a ray.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["node", "t", "az", "el", "conf", "frame"],
+  "required": [
+    "node",
+    "t",
+    "az",
+    "el",
+    "conf",
+    "frame"
+  ],
   "properties": {
-    "node": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
-    "t": {"type": "number", "description": "Unix seconds at frame capture"},
-    "az": {"type": "number", "minimum": 0, "exclusiveMaximum": 360},
-    "el": {"type": "number", "minimum": -90, "maximum": 90},
-    "conf": {"type": "number", "minimum": 0, "maximum": 1},
-    "frame": {"type": "integer", "minimum": 0}
+    "node": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "t": {
+      "type": "number",
+      "description": "Unix seconds at frame capture"
+    },
+    "az": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    },
+    "el": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "conf": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "frame": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lat": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Camera latitude, WGS84 degrees"
+    },
+    "lon": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Camera longitude, WGS84 degrees"
+    },
+    "alt_m": {
+      "type": "number",
+      "description": "Camera altitude in metres; the same reference for every node"
+    }
+  },
+  "dependentRequired": {
+    "lat": [
+      "lon",
+      "alt_m"
+    ],
+    "lon": [
+      "lat",
+      "alt_m"
+    ],
+    "alt_m": [
+      "lat",
+      "lon"
+    ]
   }
 }

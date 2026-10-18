@@ -29,12 +29,14 @@ class StatusReporter:
         interval: float = 1.0,
         ntp_every: float = 30.0,
         health_file: str | None = None,
+        position: tuple[float, float, float] | None = None,
     ):
         self.publisher = publisher
         self.ntp_server = ntp_server
         self.interval = interval
         self.ntp_every = ntp_every
         self.health_file = health_file
+        self.position = position  # a GPS on an aerostat would update this
         self._frames = 0
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -68,7 +70,7 @@ class StatusReporter:
             if frames and self.health_file:
                 self._touch_health_file()
             payload = status_payload(
-                self.publisher.node, time.time(), fps, read_temp_c(), self._offset
+                self.publisher.node, time.time(), fps, read_temp_c(), self._offset, self.position
             )
             self.publisher.publish_status(payload)
             log.info(

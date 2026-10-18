@@ -22,7 +22,15 @@ class Publisher:
         self.client.reconnect_delay_set(min_delay=1, max_delay=30)
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
+        self.client.on_message = self._on_message
         self._host, self._port = cfg.mqtt_host, cfg.mqtt_port
+        self._subscriptions: dict = {}
+
+    def subscribe(self, topic: str, handler) -> None:
+        """`handler(topic, payload_bytes)` runs on the MQTT thread; kept across reconnects."""
+        self._subscriptions[topic] = handler
+        if self.client.is_connected():
+            self.client.subscribe(topic, qos=0)
 
     def start(self) -> None:
         self.client.connect_async(self._host, self._port, keepalive=30)
@@ -50,8 +58,18 @@ class Publisher:
     def publish_status(self, payload: dict) -> bool:
         return self.publish("status", payload)
 
+    def publish_fix(self, payload: dict) -> bool:
+        return self.publish("fixes", payload)
+
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         log.info("event=mqtt_connect node=%s rc=%s", self.node, reason_code)
+        for topic in self._subscriptions:
+            client.subscribe(topic, qos=0)
+
+    def _on_message(self, client, userdata, message):
+        for pattern, handler in self._subscriptions.items():
+            if mqtt.topic_matches_sub(pattern, message.topic):
+                handler(message.topic, message.payload)
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         log.warning("event=mqtt_disconnect node=%s rc=%s", self.node, reason_code)
@@ -81,3 +99,9 @@ class DryRunPublisher:
 
     def publish_status(self, payload: dict) -> bool:
         return self.publish("status", payload)
+
+    def publish_fix(self, payload: dict) -> bool:
+        return self.publish("fixes", payload)
+
+    def subscribe(self, topic: str, handler) -> None:
+        pass  # nothing arrives in a dry run

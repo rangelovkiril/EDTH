@@ -8,10 +8,14 @@ a yard, a toy drone or a thrown ball.
 
 ## What this repo is
 
-One Python program, `node/`, that runs on each Pi: camera → detector → az/el → MQTT.
+The computation is spread out: each Pi detects, turns pixels into bearings and crosses its rays with
+its peers' into 3D fixes; the broker's rule engine turns detections into rays and validates fixes;
+a thin `fusion/` on the ground only associates fixes and Kalman-filters them into tracks with a
+prediction and a confidence. Details: [`docs/contract.md`](docs/contract.md), "Who computes what".
 
 ```
-camera → detector → pixel to az/el → MQTT (TLS) ──→ broker (EDTH-infra repo) ──→ dashboards
+node: camera → detector → az/el ─→ detections ─→ broker rule: ECEF ray ─→ rays/+ ─→ every node
+node: own rays × peers' rays ─→ fixes ─→ broker rule: validate ─→ fusion: tracks ─→ Grafana
 ```
 
 The broker, cluster, TLS, database and Grafana live in the separate **EDTH-infra** repo.
@@ -20,16 +24,21 @@ Do not add infrastructure here.
 | Path | What |
 |------|------|
 | `node/` | the node program and its tests; start with [`node/AGENTS.md`](node/AGENTS.md) |
+| `fusion/` | the thin ground side: fixes → tracks; [`fusion/AGENTS.md`](fusion/AGENTS.md) |
 | `docs/contract.md`, `docs/*.schema.json` | the message contract (normative) |
 | `.github/workflows/node.yml` | test, then build and push the arm64 image on push to `main` |
+| `.github/workflows/fusion.yml` | the same for fusion (amd64 + arm64) |
 | `deploy/` | one-time Pi bootstrap and the quadlet; the Pi then updates itself |
 
 ## Contract in one table
 
 | Topic | Payload |
 |-------|---------|
-| `nodes/{id}/detections` | `{"node","t","az","el","conf","frame"}` — one message per detection, QoS 0 |
-| `nodes/{id}/status` | `{"node","t","fps"}` plus optional `temp_c`, `clock_offset_ms` — about 1 Hz |
+| `nodes/{id}/detections` | `{"node","t","az","el","conf","frame"}` plus `lat`/`lon`/`alt_m` — one message per detection, QoS 0 |
+| `nodes/{id}/status` | `{"node","t","fps"}` plus optional `temp_c`, `clock_offset_ms`, `lat`/`lon`/`alt_m` — about 1 Hz |
+| `rays/{id}` | broker rule: the detection as an ECEF ray `{"node","t","conf","ox".."dz","ingest_ms","latency_ms"}` |
+| `nodes/{id}/fixes`, `fixes/{id}` | node: where its ray crosses a peer's `{"node","peer","t","lat","lon","alt_m","miss_m","angle_deg","range_m","conf"}`; broker republishes accepted ones |
+| `fusion/tracks` | `{"id","t","lat","lon","alt_m",…,"pred_lat","pred_lon","pred_alt_m","sigma_m","conf",…}` — per track per step |
 
 `t` is Unix seconds at frame capture. `az` is degrees clockwise from true north, [0, 360);
 `el` is degrees above the horizon, [-90, 90]. Details and ranges: [`docs/contract.md`](docs/contract.md).
@@ -42,7 +51,7 @@ same commit, and telling whoever runs the broker.
    Changes to publishing, status, geometry or config go through the platform owner.
 2. **Secrets stay out of git.** Passwords and keys come from the environment; commit only `*.example`.
 3. **Demo first.** A working end-to-end path beats completeness. Prefer simple, observable code.
-4. **Tests must pass:** `cd node && uv run pytest && uv run ruff check .`.
+4. **Tests must pass:** `uv run pytest && uv run ruff check .` in `node/` and in `fusion/`.
 5. **Python:** 3.11+, `uv`, `ruff`, `pytest`.
 
 ## Git
@@ -57,7 +66,8 @@ same commit, and telling whoever runs the broker.
 Written down, not decided.
 
 1. **`az`/`el` frame and node pose.** Assumed: computed on the node from pixel, intrinsics and
-   the configured mount heading/pitch/roll. Nobody downstream knows the pose.
+   the configured mount heading/pitch/roll. Fusion knows each node's position (from `status`), not its
+   orientation; on an aerostat the heading drifts and needs a compass/IMU.
 2. **`status` field names/units** are a proposal (`fps`, `temp_c`, `clock_offset_ms`).
 3. **Cameras:** `miget5` (Pi 5) has a Camera Module 3 Wide (imx708_wide), `miget3` (Pi 3B) a Camera
    Module v2 (imx219), both on CSI; USB cameras work through V4L2. The node takes the HFOV (102° / 62.2°)

@@ -27,6 +27,12 @@ class Config:
     heading_deg: float = 0.0
     pitch_deg: float = 0.0
     roll_deg: float = 0.0
+    position: tuple[float, float, float] | None = None  # lat, lon, alt_m
+    triangulate: bool = True
+    tri_sync_s: float = 0.05
+    tri_max_miss_m: float = 2.0
+    tri_min_angle_deg: float = 2.0
+    tri_max_range_m: float = 2000.0
     ntp_server: str = "pool.ntp.org"
     detector: str = "motion:MotionDetector"
     dry_run: bool = False
@@ -57,6 +63,13 @@ class Config:
         if stream_rotate not in (0, 90, 180, 270):
             raise ValueError("STREAM_ROTATE must be 0, 90, 180 or 270")
         dist = get("CAMERA_DIST", "")
+        position = tuple(num(f"NODE_{k}") for k in ("LAT", "LON", "ALT_M"))
+        if all(v is None for v in position):
+            position = None
+        elif any(v is None for v in position):
+            raise ValueError("NODE_LAT, NODE_LON and NODE_ALT_M go together: set all or none")
+        elif not (-90 <= position[0] <= 90 and -180 <= position[1] <= 180):
+            raise ValueError("NODE_LAT must be in [-90, 90] and NODE_LON in [-180, 180]")
         return cls(
             node_id=node_id,
             mqtt_host=host,
@@ -78,6 +91,12 @@ class Config:
             heading_deg=float(get("NODE_HEADING_DEG", 0)),
             pitch_deg=float(get("NODE_PITCH_DEG", 0)),
             roll_deg=float(get("NODE_ROLL_DEG", 0)),
+            position=position,
+            triangulate=get("TRIANGULATE", "1").lower() not in ("0", "false", "no"),
+            tri_sync_s=float(get("TRI_SYNC_S", 0.05)),
+            tri_max_miss_m=float(get("TRI_MAX_MISS_M", 2.0)),
+            tri_min_angle_deg=float(get("TRI_MIN_ANGLE_DEG", 2.0)),
+            tri_max_range_m=float(get("TRI_MAX_RANGE_M", 2000.0)),
             ntp_server=get("NTP_SERVER", "pool.ntp.org"),
             detector=get("DETECTOR", "motion:MotionDetector"),
             dry_run=dry_run,

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/ray.schema.json",
+  "title": "Ray",
+  "description": "A detection as a ray in WGS84 ECEF, published by the broker's rule engine on rays/{id}.",
+  "type": "object",
+  "required": [
+    "node",
+    "t",
+    "conf",
+    "ox",
+    "oy",
+    "oz",
+    "dx",
+    "dy",
+    "dz",
+    "ingest_ms",
+    "latency_ms"
+  ],
+  "properties": {
+    "node": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "t": {
+      "type": "number",
+      "description": "Unix seconds at frame capture, node clock"
+    },
+    "frame": {
+      "type": "integer"
+    },
+    "conf": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "ox": {
+      "type": "number",
+      "description": "Camera position, ECEF metres"
+    },
+    "oy": {
+      "type": "number"
+    },
+    "oz": {
+      "type": "number"
+    },
+    "dx": {
+      "type": "number",
+      "description": "Unit direction, ECEF"
+    },
+    "dy": {
+      "type": "number"
+    },
+    "dz": {
+      "type": "number"
+    },
+    "ingest_ms": {
+      "type": "number",
+      "description": "Broker time, Unix milliseconds"
+    },
+    "latency_ms": {
+      "type": "number",
+      "description": "ingest_ms - t*1000: network delay plus clock offset"
+    }
+  }
+}

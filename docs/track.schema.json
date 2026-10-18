@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/track.schema.json",
+  "title": "Track",
+  "description": "A tracked object with a prediction and a confidence, published by fusion on fusion/tracks once per step per confirmed track.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "t",
+    "lat",
+    "lon",
+    "alt_m",
+    "e",
+    "n",
+    "u",
+    "ve",
+    "vn",
+    "vu",
+    "speed_mps",
+    "heading_deg",
+    "pred_lat",
+    "pred_lon",
+    "pred_alt_m",
+    "horizon_s",
+    "sigma_m",
+    "pred_sigma_m",
+    "conf",
+    "pairs",
+    "hits"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Track id, stable while the track lives"
+    },
+    "t": {
+      "type": "number",
+      "description": "Unix seconds the state is predicted to"
+    },
+    "lat": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "lon": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "alt_m": {
+      "type": "number",
+      "description": "Same vertical reference as the nodes' alt_m"
+    },
+    "e": {
+      "type": "number",
+      "description": "Metres east of the fusion origin"
+    },
+    "n": {
+      "type": "number",
+      "description": "Metres north"
+    },
+    "u": {
+      "type": "number",
+      "description": "Metres up"
+    },
+    "ve": {
+      "type": "number",
+      "description": "Velocity east, m/s"
+    },
+    "vn": {
+      "type": "number",
+      "description": "Velocity north, m/s"
+    },
+    "vu": {
+      "type": "number",
+      "description": "Velocity up, m/s"
+    },
+    "speed_mps": {
+      "type": "number",
+      "minimum": 0
+    },
+    "heading_deg": {
+      "type": "number",
+      "description": "Direction of travel, clockwise from north",
+      "minimum": 0,
+      "maximum": 360
+    },
+    "pred_lat": {
+      "type": "number",
+      "description": "Predicted position horizon_s ahead",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "pred_lon": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "pred_alt_m": {
+      "type": "number"
+    },
+    "horizon_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "sigma_m": {
+      "type": "number",
+      "description": "Position uncertainty (1 sigma, Kalman covariance)",
+      "minimum": 0
+    },
+    "pred_sigma_m": {
+      "type": "number",
+      "description": "Uncertainty of the prediction",
+      "minimum": 0
+    },
+    "conf": {
+      "type": "number",
+      "description": "0..1: certainty, evidence and freshness combined",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "pairs": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Distinct node pairs whose fixes fed the track"
+    },
+    "hits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Fixes so far"
+    }
+  }
+}

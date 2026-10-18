@@ -1,7 +1,8 @@
 # node — the program that runs on each Pi
 
 Reads frames from a camera, asks a detector where the airborne objects are, converts each pixel to
-a bearing (azimuth/elevation) and publishes it over MQTT. Passive sensing only; no video leaves the
+a bearing (azimuth/elevation) and publishes it over MQTT. It also crosses its rays with the other
+nodes' and publishes where they meet (`fixes`). Passive sensing only; no video leaves the
 device. Contract: [`../docs/contract.md`](../docs/contract.md).
 
 | Read | For |
@@ -35,6 +36,8 @@ NODE_ID=rpi-1 DRY_RUN=1 CAMERA_DEVICE=clip.mp4 uv run python -m src
 | `src/payloads.py`, `publisher.py` | platform owner | message bodies, MQTT |
 | `src/status.py`, `clock.py` | platform owner | heartbeat, health file, NTP offset |
 | `src/geometry.py` | platform owner | pixel → az/el |
+| `src/ecef.py`, `triangulate.py` | platform owner | rays in ECEF; crossing own rays with peers' into fixes |
+| `src/sim.py` | platform owner | simulated nodes (see CONFIG.md) |
 | `tests/` | everyone, for their own code | published payloads are checked against `../docs/*.schema.json` |
 
 If you need a change in a platform file, ask rather than editing: it keeps parallel work from

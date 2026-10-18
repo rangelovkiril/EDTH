@@ -34,6 +34,15 @@ def test_status_payload_matches_schema(validate, temp, offset):
     assert ("clock_offset_ms" in payload) == (offset is not None)
 
 
+def test_status_payload_carries_position(validate):
+    payload = status_payload("rpi-1", 1.0, 30.0, None, None, (42.69770001, 23.3219, 560.456))
+    validate("status", payload)
+    assert (payload["lat"], payload["lon"], payload["alt_m"]) == (42.6977, 23.3219, 560.46)
+    for partial in ("lat", "lon", "alt_m"):
+        with pytest.raises(ValidationError):
+            validate("status", {k: v for k, v in payload.items() if k != partial})
+
+
 def test_schema_rejects_bad_payloads(validate):
     good = detection_payload("rpi-1", 1.0, 10.0, 5.0, 0.5, 1)
     for bad in (

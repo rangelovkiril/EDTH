@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rangelovkiril/EDTH/docs/fix.schema.json",
+  "title": "Fix",
+  "description": "A 3D point where two nodes' rays cross, published by the node on nodes/{id}/fixes; the broker republishes accepted ones on fixes/{id} with ingest_ms and latency_ms added.",
+  "type": "object",
+  "required": [
+    "node",
+    "peer",
+    "t",
+    "lat",
+    "lon",
+    "alt_m",
+    "miss_m",
+    "angle_deg",
+    "range_m",
+    "conf"
+  ],
+  "properties": {
+    "node": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "description": "Node that computed the fix (the larger id of the pair)"
+    },
+    "peer": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "t": {
+      "type": "number",
+      "description": "Mean capture time of the two rays"
+    },
+    "lat": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Where the rays come closest"
+    },
+    "lon": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Camera longitude, WGS84 degrees"
+    },
+    "alt_m": {
+      "type": "number"
+    },
+    "miss_m": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Closest distance between the two rays"
+    },
+    "angle_deg": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 180,
+      "description": "Angle between the rays; small means poor depth"
+    },
+    "range_m": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Distance from the computing node"
+    },
+    "conf": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "ingest_ms": {
+      "type": "number"
+    },
+    "latency_ms": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false
+}

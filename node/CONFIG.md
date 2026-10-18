@@ -23,7 +23,13 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
 | `NODE_HEADING_DEG`, `NODE_PITCH_DEG`, `NODE_ROLL_DEG` | `0` | mount pose: heading clockwise from north, pitch up, roll clockwise |
+| `NODE_LAT`, `NODE_LON`, `NODE_ALT_M` | unset | where the camera is (WGS84 degrees, metres); all three or none. Sent in every detection and in `status`; without it nobody can triangulate this node. Altitude needs the same reference on every node (GPS altitude, or height above the site's ground) |
 | `NTP_SERVER` | `pool.ntp.org` | for `clock_offset_ms` |
+| `TRIANGULATE` | `1` | cross this node's rays with its peers' (`rays/+`) and publish `fixes`; needs a position |
+| `TRI_SYNC_S` | `0.05` | two rays pair only if captured this close in time; node clocks must agree better than this |
+| `TRI_MAX_MISS_M` | `2` | drop a fix whose rays pass further apart than this |
+| `TRI_MIN_ANGLE_DEG` | `2` | drop a fix whose rays are nearly parallel (no depth) |
+| `TRI_MAX_RANGE_M` | `2000` | drop a fix further than this from either camera |
 
 ## Live view
 
@@ -35,3 +41,10 @@ one frame. Detections are drawn on the picture with their bearing. Add `?rotate=
 It is a local demo tool: **no password**, so anyone on the same network can watch, and nothing in it goes
 to the MQTT broker. Leave `STREAM_PORT` unset to turn it off.
 
+## Simulated nodes
+
+`uv run python -m src.sim` runs several fake nodes in one process (targets flying circles), with the
+real triangulation, for building dashboards and as a demo fallback. `DRY_RUN=1` prints messages and
+computes the broker's rays locally; otherwise it uses `MQTT_HOST`, `MQTT_PORT`, `MQTT_TLS`,
+`MQTT_USERNAME`, `MQTT_PASSWORD` like a node. `SIM_ORIGIN` (`lat,lon,alt`), `SIM_NODES`,
+`SIM_BASELINE_M`, `SIM_TARGETS`, `SIM_NOISE_DEG`, `SIM_FPS` and the rest of `SimConfig` change the scene.
