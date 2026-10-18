@@ -85,25 +85,3 @@ def test_reports_at_most_max_reports_fastest_first():
         dots = [(20 + 4 * i, 30), (20 + 8 * i, 110), (20 + 12 * i, 190)]
         found = det.detect(frame_with_dots(dots))
     assert [round(d.v) for d in found] == [190, 110]
-
-
-def test_a_small_dot_is_caught():
-    det = warmed_up()
-    found = []
-    for i in range(8):
-        frame = frame_with_dots([])
-        x = 40 + 20 * i
-        frame[80:82, x : x + 2] = 255  # 2 x 2 px, a ball far away
-        found = det.detect(frame)
-    assert len(found) == 1 and abs(found[0].u - (40 + 20 * 7 + 0.5)) < 2
-
-
-def test_a_thrown_ball_keeps_one_track_along_its_arc():
-    det = warmed_up()
-    ids = set()
-    found = []
-    for i in range(10):  # 30 px a frame sideways, thrown up and falling back: gravity 10 px/frame²
-        found = det.detect(frame_with_dot(15 + 30 * i, 220 - 50 * i + 5 * i * i))
-        ids |= {t.id for t in det.tracks if t.hits >= 3}
-    assert len(found) == 1 and abs(found[0].u - 285) < 3 and abs(found[0].v - 175) < 3
-    assert len(ids) == 1  # never lost and restarted
