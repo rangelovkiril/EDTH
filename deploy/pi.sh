@@ -7,6 +7,7 @@
 #   deploy/pi.sh miget3 update             pull the newest image now instead of waiting a minute
 #   deploy/pi.sh miget3 restart            after editing /etc/edth/node.env
 #   deploy/pi.sh miget3 view               open the live camera view in a browser
+#   deploy/pi.sh miget5 hub on|off|logs    run fusion (fixes to tracks) on this Pi as the hub
 #
 # `bootstrap`, `update` and `restart` use sudo on the Pi and ask for its password here (ssh -t).
 # `bootstrap` passes on whichever of these are set in your shell: MQTT_HOST MQTT_PORT MQTT_TLS
@@ -48,5 +49,21 @@ case $cmd in
     echo "$url"
     command -v xdg-open >/dev/null && xdg-open "$url" || true
     ;;
-  *) die "unknown command '$cmd' (bootstrap, logs, status, update, restart, view)" ;;
+  hub)
+    case ${1:-} in
+      on)
+        scp -q "$HERE/edth-fusion.container" "$host:"
+        ssh -t "$host" 'sudo install -m 644 ~/edth-fusion.container /etc/containers/systemd/ && rm ~/edth-fusion.container \
+          && sudo podman pull ghcr.io/rangelovkiril/edth-fusion:latest \
+          && sudo systemctl daemon-reload && sudo systemctl restart edth-fusion \
+          && systemctl --no-pager status edth-fusion | head -5'
+        ;;
+      off)
+        ssh -t "$host" 'sudo systemctl stop edth-fusion; sudo rm -f /etc/containers/systemd/edth-fusion.container && sudo systemctl daemon-reload'
+        ;;
+      logs) exec ssh -t "$host" 'journalctl -u edth-fusion -f -o cat' ;;
+      *) die "usage: pi.sh <host> hub on|off|logs" ;;
+    esac
+    ;;
+  *) die "unknown command '$cmd' (bootstrap, logs, status, update, restart, view, hub)" ;;
 esac

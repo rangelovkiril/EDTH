@@ -1,0 +1,27 @@
+# Rootful Podman quadlet for fusion on the hub Pi: /etc/containers/systemd/edth-fusion.container
+# Installed by `deploy/pi.sh <host> hub on`. The hub is the node the others' fixes come together on;
+# it reuses this Pi's broker settings from /etc/edth/node.env, with its own client id.
+[Unit]
+Description=EDTH fusion (fixes to tracks) on the hub node
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Container]
+Image=ghcr.io/rangelovkiril/edth-fusion:latest
+ContainerName=edth-fusion
+AutoUpdate=registry
+Pull=missing
+EnvironmentFile=/etc/edth/node.env
+Environment=MQTT_CLIENT_ID=fusion-%H
+Network=host
+LogDriver=journald
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=900
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

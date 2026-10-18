@@ -77,3 +77,18 @@ GitHub-hosted runners come from the public internet, and a Pi on a hotspot or LA
 they can reach. The options are a VPN/tunnel on every Pi or a self-hosted runner, and both add a
 moving part (and a root-equivalent agent) for no benefit here. The pull model needs nothing but outbound
 internet. The deploy keys stored as repository secrets (`RPI1_SSH_KEY`, `RPI2_SSH_KEY`) are not used.
+
+## The hub
+
+One Pi can also run fusion (the thin tracker from fixes to tracks) next to its camera, as the node the
+others' fixes come together on:
+
+```sh
+deploy/pi.sh miget5 hub on      # installs edth-fusion.container, pulls the image, starts it
+deploy/pi.sh miget5 hub logs
+deploy/pi.sh miget5 hub off
+```
+
+It uses the same broker settings as the node (`/etc/edth/node.env`) with client id `fusion-<hostname>`,
+and updates itself like the node. Run fusion in one place only (scale the cluster's `miget/fusion` to
+0 while a hub runs), or tracks are published twice.
