@@ -39,6 +39,9 @@ class Config:
     health_file: str | None = "/tmp/edth-alive"
     stream_port: int | None = None
     stream_rotate: int = 0
+    video_push_url: str | None = None
+    video_fps: float = 4.0
+    video_width: int = 640
 
     @classmethod
     def from_env(cls, env=None) -> "Config":
@@ -103,4 +106,7 @@ class Config:
             health_file=get("HEALTH_FILE", "/tmp/edth-alive"),
             stream_port=num("STREAM_PORT", int),
             stream_rotate=stream_rotate,
+            video_push_url=get("VIDEO_PUSH_URL"),
+            video_fps=float(get("VIDEO_FPS", 4.0)),
+            video_width=int(get("VIDEO_WIDTH", 640)),
         )

@@ -15,6 +15,7 @@ from .publisher import DryRunPublisher, Publisher
 from .status import StatusReporter
 from .stream import Mark, Streamer
 from .triangulate import Ray, Triangulator, ray_from_message
+from .video import VideoPusher
 
 log = logging.getLogger("edth.node")
 
@@ -59,13 +60,30 @@ def main() -> int:
     camera = open_camera(cfg.camera_device, cfg.camera_width, cfg.camera_height, cfg.camera_fps)
     detector = load_detector(cfg.detector)
     streamer = (
-        Streamer(cfg.node_id, cfg.stream_port, cfg.stream_rotate) if cfg.stream_port else None
+        Streamer(cfg.node_id, cfg.stream_port, cfg.stream_rotate)
+        if cfg.stream_port or cfg.video_push_url
+        else None
+    )
+    video = (
+        VideoPusher(
+            streamer,
+            cfg.video_push_url,
+            cfg.node_id,
+            cfg.mqtt_username,
+            cfg.mqtt_password,
+            cfg.video_fps,
+            cfg.video_width,
+        )  # fmt: skip
+        if cfg.video_push_url
+        else None
     )
     geometry = None
     triangulator = start_triangulation(cfg, publisher)
     publisher.start()
     if streamer:
         streamer.start()
+    if video:
+        video.start()
     status.start()
     log.info(
         "event=start node=%s version=%s broker=%s:%s detector=%s camera=%s position=%s dry_run=%s",
@@ -125,6 +143,8 @@ def main() -> int:
             if streamer:
                 streamer.update(frame, marks)
     finally:
+        if video:
+            video.stop()
         if streamer:
             streamer.stop()
         status.stop()

@@ -55,8 +55,9 @@ ground: fusion: associate fixes, Kalman filter   → fusion/tracks (prediction, 
 | `frame` | integer | Node-local frame counter; several detections may share one |
 | `lat`, `lon`, `alt_m` | number, optional | Where the camera was at that frame (WGS84 degrees, metres) |
 
-One message per detection. No video or pixels are sent to the broker. (The node can also serve a
-local, opt-in live view on its own HTTP port for demos; that is not part of this contract.)
+One message per detection. No video or pixels are sent to the broker. (For demos a node can also
+serve a live view on its own HTTP port, and push small frames to a video relay over HTTPS,
+`VIDEO_PUSH_URL`; both are opt-in and not part of this contract.)
 The position comes together or not at all (`NODE_LAT`/`NODE_LON`/`NODE_ALT_M`); without it the
 broker makes no ray and nobody can triangulate this node. It is in every detection so that the
 broker needs no state and a moving node (an aerostat with a GPS) is placed where it was.

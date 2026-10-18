@@ -52,7 +52,7 @@ class Mark:
 
 class Streamer:
     def __init__(
-        self, node: str, port: int, rotate: int = 0, quality: int = 70, max_fps: float = 15
+        self, node: str, port: int | None, rotate: int = 0, quality: int = 70, max_fps: float = 15
     ):
         if rotate not in ROTATIONS:
             raise ValueError(f"rotate must be one of {sorted(ROTATIONS)}")
@@ -63,26 +63,31 @@ class Streamer:
         self._marks: list[Mark] = []
         self._cache: tuple[int, int, bytes] | None = None  # (seq, rotate, jpeg), shared by viewers
         self._stopped = False
-        self._server = ThreadingHTTPServer(("0.0.0.0", port), _make_handler(self))
-        self._server.daemon_threads = True
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, name="stream", daemon=True
-        )
+        self._server = None  # no port: frames only for the video pusher, no local server
+        if port is not None:
+            self._server = ThreadingHTTPServer(("0.0.0.0", port), _make_handler(self))
+            self._server.daemon_threads = True
+            self._thread = threading.Thread(
+                target=self._server.serve_forever, name="stream", daemon=True
+            )
 
     @property
-    def port(self) -> int:
-        return self._server.server_address[1]
+    def port(self) -> int | None:
+        return self._server.server_address[1] if self._server else None
 
     def start(self) -> None:
-        self._thread.start()
-        log.info("event=stream_start node=%s port=%d rotate=%d", self.node, self.port, self.rotate)
+        if self._server:
+            self._thread.start()
+            log.info("event=stream_start node=%s port=%d rotate=%d", self.node, self.port,
+                     self.rotate)  # fmt: skip
 
     def stop(self) -> None:
         with self._cond:
             self._stopped = True
             self._cond.notify_all()
-        self._server.shutdown()
-        self._server.server_close()
+        if self._server:
+            self._server.shutdown()
+            self._server.server_close()
 
     def update(self, frame: np.ndarray, marks: list[Mark]) -> None:
         """Called by the main loop per frame; keeps references only, no copying or encoding."""
@@ -111,6 +116,19 @@ class Streamer:
             with self._cond:
                 self._cache = (seq, rotate, data)
         return data
+
+    def small_jpeg(self, width: int, quality: int) -> bytes | None:
+        """The current frame with its marks, scaled down to `width`, for sending off the device."""
+        with self._cond:
+            frame, marks = self._frame, self._marks
+        if frame is None:
+            return None
+        image = _render(frame, marks, self.rotate)
+        h, w = image.shape[:2]
+        if w > width:
+            image = cv2.resize(image, (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
+        ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        return buf.tobytes() if ok else None
 
 
 def _render(frame: np.ndarray, marks: list[Mark], rotate: int) -> np.ndarray:
