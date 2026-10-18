@@ -22,7 +22,7 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `VIDEO_TOKEN` | unset | push with this token instead of the MQTT credentials; the relay holds only its SHA-256 (EDTH-infra `apps/miget`) |
 | `VIDEO_FPS`, `VIDEO_WIDTH` | `4`, `640` | frames per second and width pushed; 4 fps at 640 px is about 100 kB/s |
 | `HEALTH_FILE` | `/tmp/edth-alive` | touched while frames flow; the container healthcheck watches it |
-| `CAMERA_HFOV_DEG` | from the camera | horizontal field of view when there is no calibration. Raspberry Pi cameras report it themselves (v1, v2, 3, 3 Wide, allowing for the sensor mode's crop); set it for an HQ camera, a USB camera (else 70), or to override |
+| `CAMERA_HFOV_DEG` | from the camera | horizontal field of view when there is no calibration. Raspberry Pi cameras report it themselves (v1, v2, 3, 3 Wide; the node runs the sensor mode that sees the whole width and allows for what the ISP trims to the frame's aspect); set it for an HQ camera, a USB camera (else 70), or to override |
 | `CAMERA_FX`, `CAMERA_FY`, `CAMERA_CX`, `CAMERA_CY` | unset | calibrated intrinsics (override HFOV) |
 | `CAMERA_DIST` | unset | comma-separated distortion coefficients |
 | `NODE_HEADING_DEG`, `NODE_PITCH_DEG`, `NODE_ROLL_DEG` | `0` | mount pose: heading clockwise from north, pitch up, roll clockwise |
