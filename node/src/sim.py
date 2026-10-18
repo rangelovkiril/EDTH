@@ -6,7 +6,10 @@ triangulates against its peers with the real Triangulator. Peer rays come from t
 messages are printed as `topic payload` lines.
 
     DRY_RUN=1 uv run python -m src.sim
-    MQTT_HOST=emqx.rangelov.dev MQTT_USERNAME=… MQTT_PASSWORD=… uv run python -m src.sim
+    MQTT_HOST=emqx.rangelov.dev MQTT_USERNAME=node MQTT_PASSWORD=… uv run python -m src.sim
+
+Each simulated node has its own MQTT connection with its id as the client id, like a Pi, so the
+shared node login works (the broker lets it publish only under `nodes/<client id>/`).
 """
 
 import json
@@ -43,6 +46,7 @@ class SimConfig:
     noise_deg: float = 0.2
     miss: float = 0.05
     false_per_s: float = 0.5
+    scale: float = 1.0  # shrinks the targets' paths: 0.05 for a table-top rig, 0.33 m baseline
 
     @classmethod
     def from_env(cls, env=None) -> "SimConfig":
@@ -84,14 +88,14 @@ def make_nodes(sim: SimConfig) -> list[SimNode]:
     return out
 
 
-def target_position(k: int, t: float) -> tuple[float, float, float]:
+def target_position(k: int, t: float, scale: float = 1.0) -> tuple[float, float, float]:
     """Target `k`: a 10 m circle 25 m north of the line, about 4 m/s, bobbing up and down."""
     w = 0.4 * (1 if k % 2 == 0 else -0.7)
     phase = k * 2.1
     return (
-        10 * math.cos(w * t + phase),
-        25 + 10 * math.sin(w * t + phase),
-        12 + 4 * k + 3 * math.sin(0.25 * t + phase),
+        scale * 10 * math.cos(w * t + phase),
+        scale * (25 + 10 * math.sin(w * t + phase)),
+        scale * (12 + 4 * k + 3 * math.sin(0.25 * t + phase)),
     )
 
 
@@ -110,7 +114,7 @@ def in_view(sim: SimConfig, az: float, el: float) -> bool:
 def frame_detections(sim: SimConfig, node: SimNode, t: float, frame: int) -> list[dict]:
     out = []
     for k in range(sim.targets):
-        az, el = bearing(node.enu, target_position(k, t))
+        az, el = bearing(node.enu, target_position(k, t, sim.scale))
         if in_view(sim, az, el) and random.random() > sim.miss:
             az += random.gauss(0, sim.noise_deg)
             el += random.gauss(0, sim.noise_deg)
@@ -150,6 +154,8 @@ class Sim:
                     self.on_ray(own)
 
     def on_ray(self, peer: Ray) -> None:
+        if peer.node not in {n.id for n in self.nodes}:
+            return  # a real node's ray: crossing it with a made-up one gives a made-up fix
         for node in self.nodes:
             if node.id != peer.node:
                 for fix in node.triangulator.add_peer(peer):
@@ -173,24 +179,14 @@ def main() -> int:
         signal.signal(sig, lambda *_: stop.set())
 
     lock = threading.Lock()
-    client = None
+    sim = Sim(sim_cfg, None, local_rays=dry_run)
+    clients: dict[str, mqtt.Client] = {}
     if dry_run:
 
         def publish(topic, payload):
             print(f"{topic} {json.dumps(payload, separators=(',', ':'))}", flush=True)
 
     else:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="sim")
-        if os.environ.get("MQTT_USERNAME"):
-            client.username_pw_set(os.environ["MQTT_USERNAME"], os.environ.get("MQTT_PASSWORD"))
-        if os.environ.get("MQTT_TLS", "1").lower() not in ("0", "false", "no"):
-            client.tls_set(ca_certs=os.environ.get("MQTT_CA_FILE") or None)
-
-        def publish(topic, payload):
-            client.publish(topic, json.dumps(payload, separators=(",", ":")), qos=0)
-
-    sim = Sim(sim_cfg, publish, local_rays=dry_run)
-    if client:
 
         def on_message(c, u, m):
             try:
@@ -200,12 +196,14 @@ def main() -> int:
             with lock:
                 sim.on_ray(peer)
 
-        client.on_connect = lambda c, u, f, rc, p: (log.info("event=mqtt_connect rc=%s", rc),
-                                                    c.subscribe("rays/+"))  # fmt: skip
-        client.on_message = on_message
-        client.connect_async(os.environ["MQTT_HOST"], int(os.environ.get("MQTT_PORT", 8883)), 30)
-        client.loop_start()
+        for i, node in enumerate(sim.nodes):
+            clients[node.id] = _connect(node.id, on_message if i == 0 else None)
 
+        def publish(topic, payload):
+            client = clients[topic.split("/")[1]]
+            client.publish(topic, json.dumps(payload, separators=(",", ":")), qos=0)
+
+    sim.publish = publish
     log.info("event=start nodes=%s targets=%d fps=%s", [n.id for n in sim.nodes], sim_cfg.targets,
              sim_cfg.fps)  # fmt: skip
     next_status = time.monotonic()
@@ -217,10 +215,30 @@ def main() -> int:
                     next_status += 1.0
                     sim.status(time.time())
     finally:
-        if client:
+        for client in clients.values():
             client.disconnect()
             client.loop_stop()
     return 0
+
+
+def _connect(client_id: str, on_ray=None) -> mqtt.Client:
+    """One node's connection; the one given `on_ray` also hears every node's rays."""
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
+    if os.environ.get("MQTT_USERNAME"):
+        client.username_pw_set(os.environ["MQTT_USERNAME"], os.environ.get("MQTT_PASSWORD"))
+    if os.environ.get("MQTT_TLS", "1").lower() not in ("0", "false", "no"):
+        client.tls_set(ca_certs=os.environ.get("MQTT_CA_FILE") or None)
+
+    def on_connect(c, u, f, rc, p):
+        log.info("event=mqtt_connect node=%s rc=%s", client_id, rc)
+        if on_ray:
+            c.subscribe("rays/+")
+
+    client.on_connect = on_connect
+    client.on_message = on_ray
+    client.connect_async(os.environ["MQTT_HOST"], int(os.environ.get("MQTT_PORT", 8883)), 30)
+    client.loop_start()
+    return client
 
 
 if __name__ == "__main__":

@@ -50,4 +50,6 @@ to the MQTT broker. Leave `STREAM_PORT` unset to turn it off.
 real triangulation, for building dashboards and as a demo fallback. `DRY_RUN=1` prints messages and
 computes the broker's rays locally; otherwise it uses `MQTT_HOST`, `MQTT_PORT`, `MQTT_TLS`,
 `MQTT_USERNAME`, `MQTT_PASSWORD` like a node. `SIM_ORIGIN` (`lat,lon,alt`), `SIM_NODES`,
-`SIM_BASELINE_M`, `SIM_TARGETS`, `SIM_NOISE_DEG`, `SIM_FPS` and the rest of `SimConfig` change the scene.
+`SIM_BASELINE_M`, `SIM_TARGETS`, `SIM_NOISE_DEG`, `SIM_FPS`, `SIM_SCALE` and the rest of `SimConfig` change the
+scene. Each simulated node connects with its own id as the client id, so the shared `node` login works.
+The table-top rig: `SIM_BASELINE_M=0.33 SIM_NODE_UP_M=0 SIM_PITCH_DEG=45 SIM_SCALE=0.05`.
