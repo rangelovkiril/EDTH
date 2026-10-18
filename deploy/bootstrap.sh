@@ -106,7 +106,13 @@ systemctl enable NetworkManager-wait-online.service >/dev/null 2>&1 || true
 systemctl daemon-reload
 systemctl enable --now podman-auto-update.timer
 
-log "Starting the node (the first start pulls the image, which can take a few minutes)"
+log "Pulling the image"
+# Not left to the first start: podman limits a pull inside a systemd unit to 5 minutes, which a Pi 3
+# on Wi-Fi does not make, so the unit would restart and begin again forever.
+image=$(sed -n 's/^Image=//p' "$HERE/edth-node.container")
+podman pull "$image"
+
+log "Starting the node"
 systemctl start edth-node.service
 
 log "Done"
