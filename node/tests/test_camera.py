@@ -7,21 +7,9 @@ import pytest
 
 from src import camera
 
-IMX708_MODES = [  # as libcamera lists them: 1536x864 is binned *and* cropped
-    {"size": (1536, 864), "bit_depth": 10, "crop_limits": (768, 432, 3072, 1728)},
-    {"size": (2304, 1296), "bit_depth": 10, "crop_limits": (0, 0, 4608, 2592)},
-    {"size": (4608, 2592), "bit_depth": 10, "crop_limits": (0, 0, 4608, 2592)},
-]
-IMX219_MODES = [
-    {"size": (640, 480), "bit_depth": 10, "crop_limits": (1000, 752, 1280, 960)},
-    {"size": (1640, 1232), "bit_depth": 10, "crop_limits": (0, 0, 3280, 2464)},
-    {"size": (1920, 1080), "bit_depth": 10, "crop_limits": (680, 692, 1920, 1080)},
-    {"size": (3280, 2464), "bit_depth": 10, "crop_limits": (0, 0, 3280, 2464)},
-]
-
 
 def install_fake_picamera2(
-    monkeypatch, model="imx708_wide", array=(4608, 2592), crop=(0, 0, 4608, 2592), modes=()
+    monkeypatch, model="imx708_wide", array=(4608, 2592), crop=(0, 0, 4608, 2592)
 ):
     calls = {}
 
@@ -45,7 +33,10 @@ def install_fake_picamera2(
     class Picamera2:
         camera_controls = {"LensPosition": (0.0, 32.0, 1.0)}
         camera_properties = {"Model": model, "PixelArraySize": array}
-        sensor_modes = list(modes)
+
+        @property
+        def sensor_modes(self):
+            raise AssertionError("listing modes configures 4608x2592: ENOMEM on a Pi 5")
 
         def create_video_configuration(self, **kw):
             calls["config"] = kw
@@ -101,33 +92,29 @@ def test_open_camera_csi_configures_bgr_fixed_focus_and_stamps_sensor_time(monke
     assert calls["stopped"] and calls["closed"]
 
 
-def test_hfov_comes_from_the_sensor_and_the_crop_the_isp_applies(monkeypatch):
-    install_fake_picamera2(monkeypatch)  # Camera Module 3 Wide, whole array
-    wide = camera.open_camera("csi", 1280, 720)
-    assert wide.model == "imx708_wide" and wide.hfov_deg is None  # not known before a frame
-    wide.read()
-    assert wide.hfov_deg == pytest.approx(102.0)
-
+def test_the_isp_crop_of_the_first_frame_overrides_the_estimate(monkeypatch):
     install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), (0, 0, 3280, 1845))  # V2, 16:9
     v2 = camera.open_camera("csi", 1280, 720)
     v2.read()
     assert v2.hfov_deg == pytest.approx(62.2)  # 16:9 only trims rows
 
-    # the 640x480 sensor mode is a crop of the middle of the array
+    # a crop of the middle of the array, e.g. a digital zoom
     install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), (1000, 752, 1280, 960))
     cropped = camera.open_camera("csi", 640, 480)
+    assert cropped.hfov_deg == pytest.approx(62.2)  # the estimate from the mode
     cropped.read()
-    assert 25 < cropped.hfov_deg < 28  # much narrower
+    assert 25 < cropped.hfov_deg < 28  # what the frames really show
 
 
-def test_runs_the_sensor_mode_that_sees_the_whole_width(monkeypatch):
-    calls = install_fake_picamera2(monkeypatch, modes=IMX708_MODES, crop=None)
+def test_runs_the_binned_mode_that_sees_the_whole_array(monkeypatch):
+    calls = install_fake_picamera2(monkeypatch, crop=None)
     wide = camera.open_camera("csi", 1280, 720)
+    # not 1536x864, which libcamera picks by itself and which crops to 79 degrees
     assert calls["config"]["sensor"] == {"output_size": (2304, 1296), "bit_depth": 10}
-    assert wide.hfov_deg == pytest.approx(102.0)  # known before a frame, not 79 from 1536x864
+    assert wide.hfov_deg == pytest.approx(102.0)  # known before a frame
 
-    # a Pi 3 reports no ScalerCrop: the mode alone gives the HFOV
-    calls = install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), None, IMX219_MODES)
+    # without a ScalerCrop in the metadata the mode alone gives the HFOV
+    calls = install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), None)
     v2 = camera.open_camera("csi", 640, 480)
     v2.read()
     assert calls["config"]["sensor"]["output_size"] == (1640, 1232)
@@ -135,11 +122,14 @@ def test_runs_the_sensor_mode_that_sees_the_whole_width(monkeypatch):
 
 
 def test_a_4_3_frame_from_a_16_9_mode_loses_some_width(monkeypatch):
-    install_fake_picamera2(monkeypatch, modes=IMX708_MODES, crop=None)
-    wide = camera.open_camera("csi", 640, 480)
-    assert 85 < wide.hfov_deg < 86  # 3456 of 4608 columns
-    assert camera.full_view_mode([], 640, 480) is None
-    assert camera.full_view_mode(IMX219_MODES, 4000, 3000) is None  # nothing that large
+    install_fake_picamera2(monkeypatch, crop=None)
+    assert 85 < camera.open_camera("csi", 640, 480).hfov_deg < 86  # 3456 of 4608 columns
+
+
+def test_a_frame_larger_than_the_binned_mode_leaves_the_choice_to_libcamera(monkeypatch):
+    calls = install_fake_picamera2(monkeypatch, "imx219", (3280, 2464), None)
+    big = camera.open_camera("csi", 1920, 1080)
+    assert "sensor" not in calls["config"] and big.hfov_deg is None
 
 
 def test_hfov_is_unknown_for_a_sensor_without_a_datasheet_value(monkeypatch):

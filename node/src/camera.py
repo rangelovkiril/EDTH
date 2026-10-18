@@ -11,6 +11,7 @@ A source may also have `hfov_deg`, its horizontal field of view once known (see 
 
 import math
 import time
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -41,46 +42,40 @@ class Camera:
         self.cap.release()
 
 
-# Horizontal field of view of the whole sensor array, degrees, from the Raspberry Pi datasheets.
+@dataclass(frozen=True)
+class Sensor:
+    hfov_deg: float  # horizontal field of view of the whole array, from the datasheet
+    array: tuple[int, int]  # pixel array, columns x rows
+    binned: tuple[int, int]  # the 2x2-binned sensor mode, which still sees the whole array
+
+
 # Keyed by libcamera's sensor model. The HQ camera (imx477) is left out: its lens is swappable.
-SENSOR_HFOV_DEG = {
-    "ov5647": 53.5,  # Camera Module v1
-    "imx219": 62.2,  # Camera Module v2
-    "imx708": 66.0,  # Camera Module 3
-    "imx708_wide": 102.0,  # Camera Module 3 Wide
-    "imx708_noir": 66.0,
-    "imx708_wide_noir": 102.0,
+SENSORS = {
+    "ov5647": Sensor(53.5, (2592, 1944), (1296, 972)),  # Camera Module v1
+    "imx219": Sensor(62.2, (3280, 2464), (1640, 1232)),  # Camera Module v2
+    "imx708": Sensor(66.0, (4608, 2592), (2304, 1296)),  # Camera Module 3
+    "imx708_wide": Sensor(102.0, (4608, 2592), (2304, 1296)),  # Camera Module 3 Wide
+    "imx708_noir": Sensor(66.0, (4608, 2592), (2304, 1296)),
+    "imx708_wide_noir": Sensor(102.0, (4608, 2592), (2304, 1296)),
 }
 
 
-def scaled_hfov_deg(full_hfov_deg: float, array_width: int, crop_width: int) -> float:
+def scaled_hfov_deg(full_hfov_deg: float, array_width: int, crop_width: float) -> float:
     """HFOV of a frame made from `crop_width` of the sensor's `array_width` columns."""
     ratio = min(crop_width / array_width, 1.0)
     return math.degrees(2 * math.atan(ratio * math.tan(math.radians(full_hfov_deg) / 2)))
-
-
-def full_view_mode(modes: list[dict], width: int, height: int) -> dict | None:
-    """The fewest-pixel sensor mode that covers width x height and sees the whole array width."""
-    modes = [m for m in modes if m.get("crop_limits") and m.get("size")]
-    if not modes:
-        return None
-    widest = max(m["crop_limits"][2] for m in modes)
-    fits = [
-        m
-        for m in modes
-        if m["crop_limits"][2] == widest and m["size"][0] >= width and m["size"][1] >= height
-    ]
-    return min(fits, key=lambda m: m["size"][0] * m["size"][1], default=None)
 
 
 class PiCamera:
     """Raspberry Pi CSI camera. Needs picamera2 + libcamera (apt: python3-picamera2).
 
     `model` is the sensor name. `hfov_deg` is the horizontal field of view of the frames being
-    delivered (None for a sensor we have no datasheet value for). The camera is run in the smallest
-    sensor mode that still sees the whole array width: left to itself libcamera picks a mode that
-    crops the middle (1920x1080 on a v2, 1536x864 on a Camera Module 3). The HFOV comes from that
-    mode's crop, and from the ISP's ScalerCrop of the first frame where the platform reports it.
+    delivered (None for a sensor we have no datasheet value for). The camera runs the binned mode
+    that sees the whole array: left to itself libcamera picks one that crops the middle (1920x1080
+    on a v2, 1536x864 on a Camera Module 3). The HFOV follows from that mode and the frame's aspect,
+    and from the ISP's ScalerCrop of the first frame where the platform reports it. Modes come from
+    the table, not from picamera2's `sensor_modes`: listing those configures the full-resolution
+    mode, which runs a Pi 5 out of camera memory.
     """
 
     def __init__(self, width: int = 1280, height: int = 720, fps: float = 30.0):
@@ -97,15 +92,13 @@ class PiCamera:
         self.cam = Picamera2()
         props = self.cam.camera_properties
         self.model: str = props.get("Model", "unknown")
-        self._full_hfov = SENSOR_HFOV_DEG.get(self.model)
-        self._array_width = (props.get("PixelArraySize") or (0, 0))[0]
+        self.sensor = SENSORS.get(self.model)
         self._crop_seen = False
         extra = {}
-        mode = full_view_mode(self.cam.sensor_modes, width, height)
-        if mode is not None:
-            extra["sensor"] = {"output_size": mode["size"], "bit_depth": mode["bit_depth"]}
-            _, _, crop_w, crop_h = mode["crop_limits"]
-            self._set_hfov(min(crop_w, crop_h * width / height))  # the ISP trims to our aspect
+        if self.sensor and width <= self.sensor.binned[0] and height <= self.sensor.binned[1]:
+            extra["sensor"] = {"output_size": self.sensor.binned, "bit_depth": 10}
+            array_w, array_h = self.sensor.array
+            self._set_hfov(min(array_w, array_h * width / height))  # the ISP trims to our aspect
         # "RGB888" is laid out B, G, R in memory, which is OpenCV's order.
         config = self.cam.create_video_configuration(
             main={"size": (width, height), "format": "RGB888"},
@@ -134,8 +127,8 @@ class PiCamera:
         return frame
 
     def _set_hfov(self, crop_width: float) -> None:
-        if self._full_hfov and self._array_width:
-            self.hfov_deg = scaled_hfov_deg(self._full_hfov, self._array_width, crop_width)
+        if self.sensor:
+            self.hfov_deg = scaled_hfov_deg(self.sensor.hfov_deg, self.sensor.array[0], crop_width)
 
     def close(self) -> None:
         self.cam.stop()
