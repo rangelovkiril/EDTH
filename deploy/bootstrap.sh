@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # One-time setup of a Raspberry Pi as an EDTH node. Run as root from a checkout of this repo:
 #
-#   sudo NODE_ID=rpi-1 MQTT_HOST=... MQTT_USERNAME=... MQTT_PASSWORD=... bash deploy/bootstrap.sh
+#   sudo MQTT_HOST=... MQTT_PASSWORD=... bash deploy/bootstrap.sh
 #
 # After this the Pi updates itself: every push to main makes GitHub Actions build and push the
 # image, and the Pi's podman-auto-update timer picks it up within a minute. Safe to re-run; re-run it
 # after `git pull` to apply a changed quadlet.
 #
 # Environment:
-#   NODE_ID         name of this node (default: rpi-1)
+#   NODE_ID         name of this node (default: pi-<last 8 hex of the board serial>, set by the node)
 #   MQTT_HOST       broker host; if empty the node runs with DRY_RUN=1 (prints, publishes nothing)
 #   MQTT_PORT       default 8883
 #   MQTT_TLS        default 1
-#   MQTT_USERNAME   default: NODE_ID
+#   MQTT_USERNAME   default: node (shared by all nodes; the broker ACL ties topics to the client id)
 #   MQTT_PASSWORD   written to /etc/edth/node.env (mode 600, root only)
 #   CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS   default 1280 x 720 at 30; lower them on a Pi 3
 #   FORCE_ENV=1     overwrite an existing /etc/edth/node.env
@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-NODE_ID=${NODE_ID:-rpi-1}
+NODE_ID=${NODE_ID:-}
 HERE=$(dirname "$(readlink -f "$0")")
 ENV_FILE=/etc/edth/node.env
 
@@ -30,7 +30,7 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "run as root: sudo bash $0"
 [[ $(uname -m) == aarch64 ]] || die "this is for a 64-bit Raspberry Pi OS (aarch64), got $(uname -m)"
 command -v apt-get >/dev/null || die "needs a Debian-based OS"
-[[ $NODE_ID =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "NODE_ID must match [a-z0-9][a-z0-9_-]*"
+[[ -z $NODE_ID || $NODE_ID =~ ^[a-z0-9][a-z0-9_-]*$ ]] || die "NODE_ID must match [a-z0-9][a-z0-9_-]*"
 [[ -f $HERE/edth-node.container ]] || die "run it from a checkout of the repo: edth-node.container is missing"
 
 log "Podman"
@@ -58,7 +58,11 @@ else
   {
     echo "# This machine's settings for the edth-node container. Not in git."
     echo "# After editing: systemctl restart edth-node"
-    echo "NODE_ID=$NODE_ID"
+    if [[ -n $NODE_ID ]]; then
+      echo "NODE_ID=$NODE_ID"
+    else
+      echo "# NODE_ID unset: the node calls itself pi-<last 8 hex of the board serial>"
+    fi
     echo "CAMERA_DEVICE=csi"
     echo "CAMERA_WIDTH=${CAMERA_WIDTH:-1280}"
     echo "CAMERA_HEIGHT=${CAMERA_HEIGHT:-720}"
@@ -74,11 +78,14 @@ else
     echo "# Remove the next line to turn it off. STREAM_ROTATE turns the picture (0, 90, 180, 270)."
     echo "STREAM_PORT=8080"
     echo "STREAM_ROTATE=0"
+    echo "# Where the camera is: set with deploy/pi.sh <host> place (see deploy/README.md)."
+    echo "# Demo video to Grafana through the relay (frames with detections drawn on):"
+    echo "VIDEO_PUSH_URL=https://video.rangelov.dev/push"
     if [[ -n ${MQTT_HOST:-} ]]; then
       echo "MQTT_HOST=$MQTT_HOST"
       echo "MQTT_PORT=${MQTT_PORT:-8883}"
       echo "MQTT_TLS=${MQTT_TLS:-1}"
-      echo "MQTT_USERNAME=${MQTT_USERNAME:-$NODE_ID}"
+      echo "MQTT_USERNAME=${MQTT_USERNAME:-node}"
       echo "MQTT_PASSWORD=${MQTT_PASSWORD:-}"
     else
       echo "# No broker configured: print detections instead of publishing them."

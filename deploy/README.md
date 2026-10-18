@@ -17,8 +17,8 @@ From your laptop, for any Pi that is in `~/.ssh/config` (nothing but SSH has to 
 repo holds no addresses):
 
 ```sh
-deploy/pi.sh miget3 bootstrap rpi-2                                   # prints, no broker
-MQTT_HOST=… MQTT_USERNAME=… MQTT_PASSWORD=… deploy/pi.sh miget3 bootstrap rpi-2
+deploy/pi.sh miget3 bootstrap                                         # prints, no broker; named after its serial
+MQTT_HOST=emqx.rangelov.dev MQTT_PASSWORD=… deploy/pi.sh miget3 bootstrap
 deploy/pi.sh miget3 logs | status | update | restart | view          # day to day
 ```
 
@@ -104,9 +104,10 @@ export SITE=42.6573,23.3549,560
 deploy/pi.sh miget5 place 0 0 1.2 heading=0 pitch=30            # at the site point, 1.2 m up
 deploy/pi.sh miget3 place 6.5 0 1.2 heading=350 pitch=30 roll=90 # 6.5 m east of it, mounted sideways
 deploy/pi.sh miget5 set STREAM_ROTATE=270                        # any other non-secret setting
+deploy/pi.sh miget5 set NODE_ID=                                 # empty: remove the setting
 ```
 
 `heading` is where the camera looks, clockwise from true north; `pitch` up from level; `roll` if the
 camera is turned on its side (the picture shows it: rotate the view with `STREAM_ROTATE`, and set
 `roll` so the bearings are right). Both restart the node. Secrets are set by EDTH-infra's scripts
-(`mqtt-node-user.sh`, `video-token.sh`).
+(`mqtt-nodes.sh <host>...`: the shared `node` login, which the video relay accepts too).

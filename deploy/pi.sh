@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Run a Pi from your laptop over SSH. <host> is any name from ~/.ssh/config (no addresses in this repo).
 #
-#   deploy/pi.sh miget3 bootstrap rpi-2    first-time setup; nothing needs to be installed on the Pi
+#   deploy/pi.sh miget3 bootstrap [id]     first-time setup; nothing needs to be installed on the Pi
+#                                          (no id: the node names itself after the board serial)
 #   deploy/pi.sh miget3 logs               follow the node's log
 #   deploy/pi.sh miget3 status             service state and the last log lines
 #   deploy/pi.sh miget3 update             pull the newest image now instead of waiting a minute
@@ -31,10 +32,11 @@ shift 2
 
 case $cmd in
   bootstrap)
-    node_id=${1:?usage: pi.sh <host> bootstrap <node-id>}
+    node_id=${1:-}
     local_env=$(mktemp)
     trap 'rm -f "$local_env"' EXIT
-    printf 'NODE_ID=%q\n' "$node_id" > "$local_env"
+    : > "$local_env"
+    [[ -n $node_id ]] && printf 'NODE_ID=%q\n' "$node_id" >> "$local_env"
     for name in "${PASS_THROUGH[@]}"; do
       [[ -n ${!name:-} ]] && printf '%s=%q\n' "$name" "${!name}" >> "$local_env"
     done

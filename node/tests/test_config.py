@@ -1,6 +1,6 @@
 import pytest
 
-from src.config import Config
+from src.config import Config, hardware_id
 
 
 def test_minimal_env():
@@ -29,10 +29,20 @@ def test_full_env():
     assert cfg.position == (42.6977, 23.3219, 560.5)
 
 
+def test_node_id_defaults_to_the_board_serial(tmp_path):
+    serial = tmp_path / "serial-number"
+    serial.write_bytes(b"000000008584F1F2\x00")
+    assert hardware_id([tmp_path / "missing", serial]) == "pi-8584f1f2"
+    cfg = Config.from_env({"MQTT_HOST": "h"}, default_id=lambda: "pi-8584f1f2")
+    assert cfg.node_id == "pi-8584f1f2"
+    assert Config.from_env({"NODE_ID": "cam-a", "MQTT_HOST": "h"}).node_id == "cam-a"
+    assert hardware_id([tmp_path / "missing"]) is None
+
+
 @pytest.mark.parametrize(
     "env",
     [
-        {"MQTT_HOST": "h"},
+        {"MQTT_HOST": "h", "NODE_ID": ""},
         {"NODE_ID": "rpi-1"},
         {"NODE_ID": "a/b", "MQTT_HOST": "h"},
         {"NODE_ID": "a#", "MQTT_HOST": "h"},
@@ -43,4 +53,4 @@ def test_full_env():
 )
 def test_invalid_env(env):
     with pytest.raises(ValueError):
-        Config.from_env(env)
+        Config.from_env(env, default_id=lambda: None)

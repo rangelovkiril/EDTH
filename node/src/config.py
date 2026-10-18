@@ -1,8 +1,22 @@
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 NODE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+SERIAL_FILES = ("/proc/device-tree/serial-number", "/sys/firmware/devicetree/base/serial-number")
+
+
+def hardware_id(paths=SERIAL_FILES) -> str | None:
+    """`pi-` and the last 8 hex digits of the board's serial number, or None off a Pi."""
+    for path in paths:
+        try:
+            serial = Path(path).read_text().strip("\x00\n ").lower()
+        except OSError:
+            continue
+        if re.fullmatch(r"[0-9a-f]{8,}", serial):
+            return "pi-" + serial[-8:]
+    return None
 
 
 @dataclass(frozen=True)
@@ -45,7 +59,7 @@ class Config:
     video_token: str | None = None
 
     @classmethod
-    def from_env(cls, env=None) -> "Config":
+    def from_env(cls, env=None, default_id=hardware_id) -> "Config":
         env = os.environ if env is None else env
 
         def get(name, default=None):
@@ -56,9 +70,10 @@ class Config:
             value = get(name)
             return None if value is None else kind(value)
 
-        node_id = get("NODE_ID")
+        # Unset: derived from the board's serial, so a new Pi needs no id handed out.
+        node_id = get("NODE_ID") or default_id()
         if node_id is None or not NODE_ID_RE.match(node_id):
-            raise ValueError("NODE_ID is required and must match [a-z0-9][a-z0-9_-]*")
+            raise ValueError("NODE_ID must match [a-z0-9][a-z0-9_-]* (needed off a Raspberry Pi)")
         dry_run = get("DRY_RUN", "0").lower() in ("1", "true", "yes")
         host = get("MQTT_HOST")
         if host is None and not dry_run:

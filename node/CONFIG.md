@@ -5,14 +5,14 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `NODE_ID` | required | e.g. `rpi-1`; also the MQTT client id and username |
+| `NODE_ID` | `pi-` + last 8 hex of the board serial | the node's name in topics; also the MQTT client id. Leave unset on a Pi, so a new one needs nothing handed out |
 | `DRY_RUN` | `0` | `1`: print instead of publishing; `MQTT_HOST` not needed |
 | `DETECTOR` | `motion:MotionDetector` | `module:Class` |
 | `LOG_LEVEL` | `INFO` | |
 | `MQTT_HOST` | required unless `DRY_RUN` | broker host |
 | `MQTT_PORT` | `8883` | |
 | `MQTT_TLS` | `1` | `0` for a local plain broker |
-| `MQTT_USERNAME`, `MQTT_PASSWORD` | unset | per-node credentials |
+| `MQTT_USERNAME`, `MQTT_PASSWORD` | unset | `node` and its password for every node (EDTH-infra `scripts/mqtt-nodes.sh` sets them); the broker lets user `node` publish only under `nodes/<client id>/` |
 | `MQTT_CA_FILE` | system CAs | custom CA bundle |
 | `CAMERA_DEVICE` | `0` | `csi` (Raspberry Pi camera), a V4L2 index, or a video file path |
 | `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `CAMERA_FPS` | `640`, `480`, `30` | requested capture size and rate (cameras only) |

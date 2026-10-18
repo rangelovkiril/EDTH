@@ -36,7 +36,9 @@ ground: fusion: associate fixes, Kalman filter   → fusion/tracks (prediction, 
 | `fixes/{id}` | broker rule `fixes` | 0 | no | per accepted fix |
 | `fusion/tracks` | fusion | 0 | no | per confirmed track per step (≈10 Hz) |
 
-`{id}` matches `^[a-z0-9][a-z0-9_-]*$` (e.g. `rpi-1`) and equals the MQTT client id.
+`{id}` matches `^[a-z0-9][a-z0-9_-]*$` (on a Pi `pi-` + the last 8 hex digits of its serial, e.g.
+`pi-8584f1f2`) and equals the MQTT client id. All nodes log in as user `node`; the broker's ACL lets
+that user publish only under `nodes/<its client id>/` and subscribe only to `rays/+`.
 
 ## `nodes/{id}/detections`
 
