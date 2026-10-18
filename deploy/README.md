@@ -92,3 +92,21 @@ deploy/pi.sh miget5 hub off
 It uses the same broker settings as the node (`/etc/edth/node.env`) with client id `fusion-<hostname>`,
 and updates itself like the node. Run fusion in one place only (scale the cluster's `miget/fusion` to
 0 while a hub runs), or tracks are published twice.
+
+## Where a camera is and where it looks
+
+Triangulation needs each camera's position and aim. Positions only have to be right **relative to
+each other**, so measure them from one point on the site (a floor marking, a corner) in metres and let
+`place` turn that into coordinates; `SITE` is that point's `lat,lon,alt` (read it off a satellite map):
+
+```sh
+export SITE=42.6573,23.3549,560
+deploy/pi.sh miget5 place 0 0 1.2 heading=0 pitch=30            # at the site point, 1.2 m up
+deploy/pi.sh miget3 place 6.5 0 1.2 heading=350 pitch=30 roll=90 # 6.5 m east of it, mounted sideways
+deploy/pi.sh miget5 set STREAM_ROTATE=270                        # any other non-secret setting
+```
+
+`heading` is where the camera looks, clockwise from true north; `pitch` up from level; `roll` if the
+camera is turned on its side (the picture shows it: rotate the view with `STREAM_ROTATE`, and set
+`roll` so the bearings are right). Both restart the node. Secrets are set by EDTH-infra's scripts
+(`mqtt-node-user.sh`, `video-token.sh`).
