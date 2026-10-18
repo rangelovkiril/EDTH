@@ -1,0 +1,29 @@
+[project]
+name = "edth-fusion"
+version = "0.1.0"
+description = "Ground side: bearings from several nodes to 3D tracks over MQTT"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "paho-mqtt>=2.1,<3",
+]
+
+[tool.uv]
+package = false  # run from source: python -m src
+
+[dependency-groups]
+dev = ["jsonschema>=4.21", "pytest>=8", "ruff>=0.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
