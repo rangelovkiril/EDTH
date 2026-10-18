@@ -29,7 +29,7 @@ class Config:
     roll_deg: float = 0.0
     position: tuple[float, float, float] | None = None  # lat, lon, alt_m
     triangulate: bool = True
-    tri_sync_s: float = 0.05
+    tri_sync_s: float = 0.1
     tri_max_miss_m: float = 2.0
     tri_min_angle_deg: float = 2.0
     tri_max_range_m: float = 2000.0
@@ -97,7 +97,7 @@ class Config:
             roll_deg=float(get("NODE_ROLL_DEG", 0)),
             position=position,
             triangulate=get("TRIANGULATE", "1").lower() not in ("0", "false", "no"),
-            tri_sync_s=float(get("TRI_SYNC_S", 0.05)),
+            tri_sync_s=float(get("TRI_SYNC_S", 0.1)),
             tri_max_miss_m=float(get("TRI_MAX_MISS_M", 2.0)),
             tri_min_angle_deg=float(get("TRI_MIN_ANGLE_DEG", 2.0)),
             tri_max_range_m=float(get("TRI_MAX_RANGE_M", 2000.0)),

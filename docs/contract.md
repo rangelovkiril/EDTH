@@ -145,7 +145,7 @@ field of every top-level key.
 - **Altitude reference** is whatever the nodes agree on; a GPS altitude and a hand-measured one
   must not be mixed.
 - **Clocks.** Rays are paired by their `t`, so node clocks must agree to well under `TRI_SYNC_S`
-  (50 ms): chrony/NTP on every host. `latency_ms` on `rays/*` shows a clock that drifts.
+  (100 ms by default): chrony/NTP on every host; over a phone hotspot clocks differ by tens of ms. `latency_ms` on `rays/*` shows a clock that drifts.
 - **Two cameras, two targets** can cross in "ghost" places; a third node removes them.
 - **`status` fields** are a proposal; unavailable values are omitted, not `null`.
 - **No schema version field** and no retained online/offline (LWT) signal yet.

@@ -63,7 +63,7 @@ class Triangulator:
     def __init__(
         self,
         node: str,
-        sync_s: float = 0.05,
+        sync_s: float = 0.1,
         max_miss_m: float = 2.0,
         min_angle_deg: float = 2.0,
         max_range_m: float = 2000.0,

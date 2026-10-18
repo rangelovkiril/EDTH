@@ -29,7 +29,7 @@ All settings are environment variables. On a Pi they live in `/etc/edth/node.env
 | `NODE_LAT`, `NODE_LON`, `NODE_ALT_M` | unset | where the camera is (WGS84 degrees, metres); all three or none. Sent in every detection and in `status`; without it nobody can triangulate this node. Altitude needs the same reference on every node (GPS altitude, or height above the site's ground) |
 | `NTP_SERVER` | `pool.ntp.org` | for `clock_offset_ms` |
 | `TRIANGULATE` | `1` | cross this node's rays with its peers' (`rays/+`) and publish `fixes`; needs a position |
-| `TRI_SYNC_S` | `0.05` | two rays pair only if captured this close in time; node clocks must agree better than this |
+| `TRI_SYNC_S` | `0.1` | two rays pair only if captured this close in time; node clocks must agree better than this (a target at 5 m/s moves 0.5 m in 0.1 s) |
 | `TRI_MAX_MISS_M` | `2` | drop a fix whose rays pass further apart than this |
 | `TRI_MIN_ANGLE_DEG` | `2` | drop a fix whose rays are nearly parallel (no depth) |
 | `TRI_MAX_RANGE_M` | `2000` | drop a fix further than this from either camera |
