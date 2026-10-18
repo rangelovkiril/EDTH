@@ -5,58 +5,79 @@ import numpy as np
 
 from .detector import Detection
 
+# Constant-velocity model in pixels, one step per frame: state (x, y, vx, vy), measured (x, y).
+F = np.array([[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], float)
+H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], float)
+# Piecewise-constant acceleration between frames, per unit of acceleration variance.
+_G = np.array([[0.5, 0, 1, 0], [0, 0.5, 0, 1]], float).T
+Q_UNIT = _G @ _G.T
+
+
+def _inv2(S: np.ndarray) -> np.ndarray:
+    """Inverse of a 2x2 covariance; np.linalg.inv costs more than the rest of the tracker."""
+    a, b, c, d = S[0, 0], S[0, 1], S[1, 0], S[1, 1]
+    return np.array([[d, -b], [-c, a]]) / (a * d - b * c)
+
 
 @dataclass
 class Track:
-    """One moving blob, filtered with a constant-velocity alpha-beta filter (a steady-state Kalman).
-
-    Positions and velocities are pixels and pixels per frame.
-    """
+    """One blob, followed by a Kalman filter. Pixels and pixels per frame."""
 
     id: int
-    x: np.ndarray  # filtered position
+    s: np.ndarray  # state x, y, vx, vy
+    P: np.ndarray  # its covariance
     birth: np.ndarray  # where it was first seen
-    v: np.ndarray = None  # velocity
-    seen: tuple = (0.0, 0.0)  # the last measured centre, which is what gets reported
+    seen: tuple  # the last measured centre, which is what gets reported
     hits: int = 1
     missed: int = 0
 
-    def __post_init__(self):
-        if self.v is None:
-            self.v = np.zeros(2)
+    def predict(self, Q: np.ndarray) -> None:
+        self.s = F @ self.s
+        self.P = F @ self.P @ F.T + Q
 
-    def predicted(self) -> np.ndarray:
-        return self.x + self.v
+    def innovation(self, z: np.ndarray, R: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Measurement residual and its covariance."""
+        return z - H @ self.s, H @ self.P @ H.T + R
+
+    def update(self, z: np.ndarray, R: np.ndarray) -> None:
+        r, S = self.innovation(z, R)
+        K = self.P @ H.T @ _inv2(S)
+        self.s = self.s + K @ r
+        self.P = (np.eye(4) - K @ H) @ self.P
 
     @property
     def speed(self) -> float:
-        return float(np.hypot(*self.v))
+        return float(np.hypot(self.s[2], self.s[3]))
 
 
 class MotionDetector:
-    """MOG2 background subtraction, then a tracker that reports only fast, travelling blobs.
+    """MOG2 background subtraction, then a Kalman tracker that reports only fast, travelling blobs.
 
-    No aircraft classifier. Each blob becomes a track with a position and a velocity; a new blob is
-    matched to where a track is predicted to be, so a fast target that jumps far between frames
-    keeps its track (a track seen only once has no velocity yet and gets the wider `acquire` gate).
+    No aircraft classifier. Each blob becomes a track with a position, a velocity and their
+    uncertainty. A new blob joins the track whose prediction it falls inside, measured in that
+    track's own uncertainty (Mahalanobis distance): a fresh track, whose velocity could be anything
+    up to `max_speed`, accepts a blob far away, so a fast target is caught on its second frame; a
+    settled track accepts only blobs near its prediction, so noise does not hijack it. `accel` is
+    how hard a target may change velocity between frames (a thrown ball, a turning drone).
+
     A track is reported once it has been seen `min_hits` frames in a row, moves faster than
     `min_speed` and has travelled `min_travel` from where it started: flicker and things that
-    shuffle on the spot never are. At most `max_reports` per frame, fastest first.
-    Distances are fractions of the frame width, so they hold at any resolution.
+    shuffle on the spot never are. At most `max_reports` per frame, fastest first. Speeds and
+    distances are fractions of the frame width (per frame), so they hold at any resolution.
     """
-
-    ALPHA, BETA = 0.85, 0.5  # gains of the alpha-beta filter: trust the measurement, adapt fast
 
     def __init__(
         self,
         threshold=20,
-        min_area=5,
+        min_area=3,
         max_blobs=30,
-        min_hits=3,
+        min_hits=4,
         min_speed=0.005,
         min_travel=0.04,
-        gate=0.08,
-        acquire=0.2,
+        max_speed=0.25,
+        accel=0.01,
+        pixel_sigma=1.5,
+        gate_chi2=16.0,
         max_missed=2,
         max_reports=3,
     ):
@@ -66,8 +87,10 @@ class MotionDetector:
         self.min_hits = min_hits
         self.min_speed = min_speed
         self.min_travel = min_travel
-        self.gate = gate
-        self.acquire = acquire
+        self.max_speed = max_speed
+        self.accel = accel
+        self.pixel_sigma = pixel_sigma
+        self.gate_chi2 = gate_chi2  # 2 degrees of freedom: 16 keeps 99.97% of true matches
         self.max_missed = max_missed
         self.max_reports = max_reports
         self.background = cv2.createBackgroundSubtractorMOG2(
@@ -103,7 +126,7 @@ class MotionDetector:
             if t.hits >= self.min_hits
             and t.missed == 0
             and t.speed >= self.min_speed * width
-            and np.hypot(*(t.x - t.birth)) >= self.min_travel * width
+            and np.hypot(*(t.s[:2] - t.birth)) >= self.min_travel * width
         ]
         moving.sort(key=lambda t: t.speed, reverse=True)
         # Heuristic: confidence grows with persistence, never reaches certainty.
@@ -113,25 +136,24 @@ class MotionDetector:
         ]
 
     def _update_tracks(self, centers: list[tuple], width: int) -> None:
-        # Global nearest-neighbour against the predicted positions, one blob per track. The gate
-        # widens with speed, so a target that speeds up between frames is not lost.
-        pairs = sorted(
-            (float(np.hypot(*(np.array(c) - t.predicted()))), ti, ci)
-            for ti, t in enumerate(self.tracks)
-            for ci, c in enumerate(centers)
-        )
+        Q = Q_UNIT * (self.accel * width) ** 2
+        R = np.eye(2) * self.pixel_sigma**2
+        for t in self.tracks:
+            t.predict(Q)
+        # Global nearest neighbour by Mahalanobis distance, one blob per track.
+        pairs = []
+        if centers:
+            Z = np.array(centers)
+            for ti, t in enumerate(self.tracks):
+                r = Z - H @ t.s  # every blob's residual against this track at once
+                d2 = np.einsum("ni,ij,nj->n", r, _inv2(t.P[:2, :2] + R), r)
+                pairs += [(float(d2[ci]), ti, ci) for ci in np.flatnonzero(d2 <= self.gate_chi2)]
         used_t, used_c = set(), set()
-        for distance, ti, ci in pairs:
-            t = self.tracks[ti]
-            # a track seen once has no velocity yet: a wider gate lets a fast target be acquired
-            gate = self.acquire * width if t.hits == 1 else self.gate * width + 1.5 * t.speed
-            if ti in used_t or ci in used_c or distance > gate:
+        for _, ti, ci in sorted(pairs):
+            if ti in used_t or ci in used_c:
                 continue
-            z = np.array(centers[ci])
-            p = t.predicted()
-            r = z - p
-            t.x = p + self.ALPHA * r
-            t.v = t.v + self.BETA * r
+            t = self.tracks[ti]
+            t.update(np.array(centers[ci]), R)
             t.seen = centers[ci]
             t.hits += 1
             t.missed = 0
@@ -139,11 +161,18 @@ class MotionDetector:
             used_c.add(ci)
         for ti, t in enumerate(self.tracks):
             if ti not in used_t:
-                t.x = t.predicted()  # coast on the velocity through a missed frame
-                t.missed += 1
-        self.tracks = [t for t in self.tracks if t.missed <= self.max_missed]
+                t.missed += 1  # coasts on its prediction, growing less certain
+        # A blob seen once and then not again was noise: only a confirmed track may coast.
+        self.tracks = [
+            t
+            for t in self.tracks
+            if t.missed == 0 or (t.hits >= self.min_hits and t.missed <= self.max_missed)
+        ]
+        v0 = (self.max_speed * width / 2) ** 2  # unknown velocity: within max_speed at 2 sigma
         for ci, c in enumerate(centers):
             if ci not in used_c:
                 z = np.array(c)
-                self.tracks.append(Track(self.next_id, z, z.copy(), seen=c))
+                P = np.diag([R[0, 0], R[1, 1], v0, v0])
+                s = np.array([z[0], z[1], 0.0, 0.0])
+                self.tracks.append(Track(self.next_id, s, P, z.copy(), c))
                 self.next_id += 1
